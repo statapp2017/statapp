@@ -1,0 +1,22 @@
+# Librairies
+library(stringr)
+library(base64enc)
+library(openssl)
+library(twitteR)  
+
+# Initialisation
+consumer_key <-"omimBnQiiwuOgqUPYxC501p0O"
+consumer_secret<-"AuFzlqP7OKXD2xKOG6jnf6hYLKWcIiNsIlsRHDNS1ochNJuCtt"
+access_token <-"826780938382241793-jOjPTTDTiLg162tvswNueIue1WM7gDc"
+access_secret<-"Znbbt4Tgy5QFjdpHlI7ZXDWzPZArf96ZoZi0pKz8bfkFg"
+setup_twitter_oauth(consumer_key,consumer_secret,access_token,access_secret)
+
+# Importer des données
+debut<-Sys.time()
+tweets <- searchTwitter("assurance", n = 1000, lang = "fr", resultType = "mixed",retryOnRateLimit = 10)
+fin<-Sys.time()
+fin-debut
+# Transformer en Data Frame
+tweets_df <- twListToDF(tweets)
+
+#t= subset(tweets_df, select=-c(statusSource, longitude, latitude, id))
