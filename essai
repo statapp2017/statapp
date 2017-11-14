@@ -1,22 +1,81 @@
-# Librairies
-library(stringr)
-library(base64enc)
-library(openssl)
-library(twitteR)  
+#install.packages("twitteR", dependencies = TRUE)
+#install.packages("base64enc")
+#install.packages("openssl")
+#install.packages("stringr", dependencies=TRUE)
+#install.packages("koRpus")
+#install.packages("taskscheduleR")
 
-# Initialisation
+rm(list=ls())
+library(taskscheduleR)
+library(base64enc)
+library(koRpus)
+library(openssl)
+library(twitteR)
+library(devtools)
+library(httr)
+#Connexion au serveur twitter
 consumer_key <-"omimBnQiiwuOgqUPYxC501p0O"
 consumer_secret<-"AuFzlqP7OKXD2xKOG6jnf6hYLKWcIiNsIlsRHDNS1ochNJuCtt"
 access_token <-"826780938382241793-jOjPTTDTiLg162tvswNueIue1WM7gDc"
 access_secret<-"Znbbt4Tgy5QFjdpHlI7ZXDWzPZArf96ZoZi0pKz8bfkFg"
 setup_twitter_oauth(consumer_key,consumer_secret,access_token,access_secret)
+identifiant=getUser(tweets_df$replyToUID[2])
+r1<-twListToDF(userTimeline(identifiant, n = 100))
+#Recherche de tweets selon un ou des mots clés et mise sous forme de dataframe
+recuperation<-function(iden){
+  Uid<-getUser(iden)$id
+  tweets_df <- twListToDF(userTimeline(iden, n = 1000))
+  tweets_df<-tweets_df[!is.na(tweets_df$replyToSID),]
+  tweets_df$conv<-tweets_df$replyToSN
+  for (i in 1:nrow(tweets_df)){
+    try(identifiant<-getUser(tweets_df$replyToUID[i]))
+    try(t<-twListToDF(userTimeline(identifiant, n = 100)))
+    try(t<-t[t$replyToUID==Uid,])
+    try(t$conv<-rep(tweets_df$replyToSN[i],nrow(t)))
+    try(tweets_df<-rbind(tweets_df,t))
+  }
+  tweets_df<-tweets_df[!is.na(tweets_df$text),]
+  tweets_df[order(tweets_df$conv), ]
+}
+p<-recuperation("@Mon_AXA")
+#Rajout des anciens tweets au fichier référence
+tweets_df$created<-factor(tweets_df$created)
+write.csv2(rbind(read.csv2("D:/ENSAE/2 ème année/Stats app/tweets.csv"),tweets_df),file='D:/ENSAE/2 ème année/Stats app/tweets.csv',row.names = FALSE)
+trad<-read.csv("D:/ENSAE/traduc.csv")[ , c(3:5)]
+tweets_text<-lapply(tweets_df,function(t)t$getText())
 
-# Importer des données
-debut<-Sys.time()
-tweets <- searchTwitter("assurance", n = 1000, lang = "fr", resultType = "mixed",retryOnRateLimit = 10)
-fin<-Sys.time()
-fin-debut
-# Transformer en Data Frame
-tweets_df <- twListToDF(tweets)
+FEEL<-read.csv2("D:/ENSAE/2 ème année/Stats app/FEEL.csv",encoding="UTF-8")
+lemmatizer<-function(file){
+  text<-data.frame(treetag(file,treetagger = "manual",TT.tknz=FALSE,lang="fr",encoding="Latin1",TT.options=list(path="C:/TreeTagger",preset = "fr"))@TT.res[,c(1,2,3)])
+  chaine=""
+  for (i in 1:nrow(text)){
+    if (text$lemma[i]=="<unknown>"){
+      chaine=paste(chaine,text$token[i])
+    }
+    else {
+      chaine=paste(chaine,text$lemma[i])
+    }
+  }
+  chaine
+}
 
-#t= subset(tweets_df, select=-c(statusSource, longitude, latitude, id))
+lemma_dataframe<-function(data){
+  data$lemme<-data.frame(rep("0",nrow(data)))
+  for (i in 1:nrow(data)){
+    file.create(paste(data$id[i],".txt",sep=""))
+    write.table(data$text[i],file=paste(data$id[i],".txt",sep=""))
+    data$lemma[i]<-lemmatizer(paste(data$id[i],".txt",sep=""))
+    file.remove(paste(data$id[i],".txt",sep=""))
+  }
+  data
+}
+tweet2<-lemma_dataframe(tweets_df)
+t<-read.table("D:/ENSAE/Sentiment.txt")
+FEEL<-read.csv2("D:/ENSAE/2 ème année/Stats app/FEEL.csv",encoding="UTF-8")[,c(2,3)]
+sentiment<-function(phrase){
+  FEEL<-read.csv2("D:/ENSAE/2 ème année/Stats app/FEEL.csv",encoding="UTF-8")[,c(2,3)]
+  negation<-data.frame(Negation=c("n","ne","ni","pas","jamais","aucun","guère","nullement","aucunement","rien"))
+  #lemmatization
+  texte=lemmatizer(phrase)
+  
+}
