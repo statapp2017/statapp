@@ -60,9 +60,9 @@ lemmatizer <- function(file) {
   chain <- ""
   for (i in 1:nrow(text)) {
     if (text$lemma[i] == "<unknown>") {
-      chain <- paste(chaine, text$token[i])
+      chain <- paste(chain, text$token[i])
     } else {
-      chain <- paste(chaine, text$lemma[i])
+      chain <- paste(chain, text$lemma[i])
     }
   }
   chain
