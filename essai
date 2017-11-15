@@ -53,6 +53,7 @@ extraction <- function(liste_assu, ancien_fichier) {
   ancien
 }
 
+# Lemmatisation --------------------------
 # Lemmatisation d'un texte contenu dans le fichier situe dans le dossier à l'adresse file
 lemmatizer <- function(file) {
   # A la ligne suivante dans path = "...", mettre l'adresse du dossier TreeTagger
