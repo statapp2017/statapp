@@ -46,7 +46,7 @@ recuperer <- function(identifier, insurance) {
 }
 
 # liste_assu <- read.csv2("C:/Users/AC-te/Downloads/workspace/liste_assu.csv") #A
-liste_assu <- read.csv2("//ENSAE/StatApp/liste_assu.csv") #S
+liste_assu <- read.csv2("/Users/okabeshu/Documents/ENSAE/StatApp/liste_assu.csv") #S
 
 # Extraction pour toutes les assurances reperees
 extraction <- function(liste_assu, ancien_fichier) {
@@ -57,14 +57,16 @@ extraction <- function(liste_assu, ancien_fichier) {
   write.csv(ancien, ancien_fichier)
 }
 
-#taskscheduler_create(taskname = "automate", rscript = "D:/ENSAE/2èmeannée/Statsapp/Statsapp.R", schedule = "ONCE")
-#taskcheduler_runnow("automate")
+# Automatisation -----------------------------
+#taskscheduler_create(taskname = "automate", rscript = "D:/ENSAE/2èmeannée/Statsapp/Statsapp.R", schedule = "ONCE") #A
+#taskcheduler_runnow("automate") #A
 
 # Lemmatisation dataframe -----------------------------
 # Lemmatisation d'un texte contenue dans le fichier situe dans le dossier a l'adresse file
 lemmatizer <- function(file) {
   # a la ligne suivante dans path = "..." mettre l'adresse du dossier TreeTagger
-  text <- data.frame(treetag(file, treetagger = "manual", TT.tknz = FALSE, lang = "fr",encoding = "Latin1",TT.options = list(path = "C:/TreeTagger", preset = "fr"))@TT.res[, c(1, 2, 3)])
+  #text <- data.frame(treetag(file, treetagger = "manual", TT.tknz = FALSE, lang = "fr", encoding = "Latin1", TT.options = list(path = "/TreeTagger", preset = "fr"))@TT.res[, c(1, 2, 3)]) #A
+  text <- data.frame(treetag(file, treetagger = "manual", TT.tknz = FALSE, lang = "fr", encoding = "Latin1", TT.options = list(path = "/Users/okabeshu/Documents/ENSAE/StatApp/TreeTagger", preset = "fr"))@TT.res[, c(1, 2, 3)]) #S
   chain <- ""
   for (i in 1:nrow(text)) {
     if (text$lemma[i] == "<unknown>") {
@@ -89,11 +91,13 @@ lemma_dataframe <- function(data) {
 }
 
 # Debut de la labelisation a la main -----------------------------
-t <- read.table("D:/ENSAE/Sentiment.txt")
-trad <- read.csv("D:/ENSAE/traduc.csv")[, c(3:5)]
-FEEL <- read.csv2("D:/ENSAE/2 ème année/Stats app/FEEL.csv", encoding="UTF-8")[, c(2, 3)]
+#t <- read.table("D:/ENSAE/Sentiment.txt")
+#trad <- read.csv("D:/ENSAE/traduc.csv")[, c(3:5)]
+#FEEL <- read.csv2("D:/ENSAE/2 ème année/Stats app/FEEL.csv", encoding="UTF-8")[, c(2, 3)] #A
+#FEEL <- read.csv2("/Users/okabeshu/Documents/ENSAE/StatApp/FEEL.csv", encoding="UTF-8")[, c(2, 3)] #S
 sentiment <- function(phrase) {
-  FEEL <- read.csv2("D:/ENSAE/2 ème année/Stats app/FEEL.csv", encoding="UTF-8")[, c(2, 3)]
+  #FEEL <- read.csv2("D:/ENSAE/2 ème année/Stats app/FEEL.csv", encoding="UTF-8")[, c(2, 3)] #A
+  FEEL <- read.csv2("/Users/okabeshu/Documents/ENSAE/StatApp/FEEL.csv", encoding="UTF-8")[, c(2, 3)] #S
   tab_negation <- c("n", "ne", "ni", "pas", "jamais", "aucun", "guère", "nullement", "aucunement", "rien")
   negation <- data.frame(tab_negation)
   # Lemmatisation
