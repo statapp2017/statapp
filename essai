@@ -49,13 +49,13 @@ recuperer <- function(identifier, insurance) {
 liste_assu <- read.csv2("/Users/okabeshu/Documents/ENSAE/StatApp/liste_assu.csv") #S
 
 # Extraction pour toutes les assurances reperees
-extraction <- function(liste_assu, ancien_fichier) {
+extract <- function(liste_assu, ancien_fichier) {
   ancien <- read.csv2(ancien_fichier)
   for (i in 1:nrow(liste_assu)) {
     ancien <- rbind(ancien, recuperer(liste_assu$Identificateur[i], liste_assu$Assurance[i]))
   }
   write.csv(ancien, ancien_fichier)
-extraction(liste_assu,"Assurances.csv}
+extract(liste_assu,"Assurances.csv}
 
 # Automatisation -----------------------------
 #taskscheduler_create(taskname = "automate", rscript = "D:/ENSAE/2èmeannée/Statsapp/Statsapp.R", schedule = "ONCE") #A
@@ -71,8 +71,7 @@ lemmatizer <- function(file) {
   for (i in 1:nrow(text)) {
     if (text$lemma[i] == "<unknown>") {
       chain <- paste(chain, text$token[i])
-    }
-    else {
+    } else {
       chain <- paste(chain, text$lemma[i])
     }
   }
