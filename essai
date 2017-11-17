@@ -55,7 +55,8 @@ extract <- function(liste_assu, ancien_fichier) {
     ancien <- rbind(ancien, recuperer(liste_assu$Identificateur[i], liste_assu$Assurance[i]))
   }
   write.csv(ancien, ancien_fichier)
-extract(liste_assu,"Assurances.csv}
+}
+extract(liste_assu,"Assurances.csv)
 
 # Automatisation -----------------------------
 #taskscheduler_create(taskname = "automate", rscript = "D:/ENSAE/2èmeannée/Statsapp/Statsapp.R", schedule = "ONCE") #A
