@@ -4,9 +4,11 @@
 #install.packages("openssl")
 #install.packages("koRpus")
 #install.packages("taskscheduleR")
+#install.packages("cronR")
 
 rm(list <- ls())
-library(taskscheduleR)
+#library(taskscheduleR)
+library(cronR)
 library(base64enc)
 library(koRpus)
 library(openssl)
@@ -14,6 +16,7 @@ library(stringr)
 library(twitteR)
 library(devtools)
 library(httr)
+
 
 # Connexion au serveur Twitter -----------------------------
 consumer_key <- "omimBnQiiwuOgqUPYxC501p0O"
@@ -26,7 +29,7 @@ setup_twitter_oauth(consumer_key, consumer_secret, access_token, access_secret)
 # Fonction de recuperation des Tweets et reponses si possible pour un identifiant de type @Mon_AXA
 recuperer <- function(identifier, insurance) {
   Uid <- getUser(identifier)$id
-  tweets_df <- twListToDF(userTimeline(iden, n = 1000))
+  tweets_df <- twListToDF(userTimeline(identifier, n = 1000))
   tweets_df <- tweets_df[!is.na(tweets_df$replyToSID), ]
   tweets_df$conv <- tweets_df$replyToSN
   for (i in 1:nrow(tweets_df)) {
@@ -41,7 +44,8 @@ recuperer <- function(identifier, insurance) {
   tweets_df$assurance <- rep(insurance, nrow(tweets_df))
   tweets_df[order(df$conv), ]
 }
-p <- recuperation("@Mon_AXA")
+
+p <- recuperer("@Mon_AXA")
 liste_assu <- read.csv2("C:/Users/AC-te/Downloads/workspace/liste_assu.csv")
 
 # Extraction pour toutes les assurances reperees
