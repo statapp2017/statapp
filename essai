@@ -42,7 +42,7 @@ recuperer <- function(identifier, insurance) {
     try(tweets_df <- rbind(tweets_df, t))
   }
   tweets_df$assurance <- rep(insurance, nrow(tweets_df))
-  tweets_df[order(df$conv), ]
+  tweets_df[order(tweets_df$conv), ]
 }
 
 # liste_assu <- read.csv2("C:/Users/AC-te/Downloads/workspace/liste_assu.csv") #A
@@ -52,10 +52,10 @@ liste_assu <- read.csv2("/Users/okabeshu/Documents/ENSAE/StatApp/liste_assu.csv"
 extraction <- function(liste_assu, ancien_fichier) {
   ancien <- read.csv2(ancien_fichier)
   for (i in 1:nrow(liste_assu)) {
-    ancien <- rbind(ancien, recuperer(liste_assu$iden[i], liste_assu$assurance[i]))
+    ancien <- rbind(ancien, recuperer(liste_assu$Identificateur[i], liste_assu$Assurance[i]))
   }
   write.csv(ancien, ancien_fichier)
-}
+extraction(liste_assu,"Assurances.csv}
 
 # Automatisation -----------------------------
 #taskscheduler_create(taskname = "automate", rscript = "D:/ENSAE/2èmeannée/Statsapp/Statsapp.R", schedule = "ONCE") #A
