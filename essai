@@ -45,20 +45,20 @@ recuperer <- function(identifier, insurance) {
   tweets_df[order(df$conv), ]
 }
 
-p <- recuperer("@Mon_AXA")
-liste_assu <- read.csv2("C:/Users/AC-te/Downloads/workspace/liste_assu.csv")
+# liste_assu <- read.csv2("C:/Users/AC-te/Downloads/workspace/liste_assu.csv") #A
+liste_assu <- read.csv2("//ENSAE/StatApp/liste_assu.csv") #S
 
 # Extraction pour toutes les assurances reperees
 extraction <- function(liste_assu, ancien_fichier) {
   ancien <- read.csv2(ancien_fichier)
   for (i in 1:nrow(liste_assu)) {
-    ancien <- rbind(ancien, recuperation(liste_assu$iden[i], liste_assu$assurance[i]))
+    ancien <- rbind(ancien, recuperer(liste_assu$iden[i], liste_assu$assurance[i]))
   }
   write.csv(ancien, ancien_fichier)
 }
 
-taskscheduler_create(taskname = "automate", rscript = "D:/ENSAE/2èmeannée/Statsapp/Statsapp.R", schedule = "ONCE")
-taskcheduler_runnow("automate")
+#taskscheduler_create(taskname = "automate", rscript = "D:/ENSAE/2èmeannée/Statsapp/Statsapp.R", schedule = "ONCE")
+#taskcheduler_runnow("automate")
 
 # Lemmatisation dataframe -----------------------------
 # Lemmatisation d'un texte contenue dans le fichier situe dans le dossier a l'adresse file
