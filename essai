@@ -37,8 +37,8 @@ recuperer <- function(identifier, insurance) {
     options(show.error.messages = FALSE)
     try(identifiant <- getUser(tweets_df$replyToUID[i]))
     try(t <- twListToDF(userTimeline(identifiant, n = 100)))
-    try(t$conv <- c(tweets_df$replyToSN[i]))
     try(t <- t[t$id == SID, ])
+    try(t$conv <- rep(identifiant, nrow(t)))
     try(tweets_df <- rbind(tweets_df, t))
   }
   tweets_df$assurance <- rep(insurance, nrow(tweets_df))
