@@ -1,0 +1,42 @@
+#install.packages("rvest")
+library(rvest)
+library(stringr)
+assu <- read_html("https://www.opinion-assurances.fr/tous-les-assureurs.html")
+html_nodes(assu, "a") %>% html_attr("href")
+
+extract_opinion <- function() {
+assu <- read_html("https://www.opinion-assurances.fr/tous-les-assureurs.html")
+basis <- "https://www.opinion-assurances.fr"
+list_insurance <- html_nodes(assu,"a") %>% html_attr("href")
+list_insurance <- list_insurance[28:349]
+data <- data.frame(Niveaux_des_prix=character(), Qualite_du_service_client = character(), Qualite_garantie=character(),
+                Satisfaction = character(), Resume=character(), Plus=character(), Moins = character()) 
+for (i in c(1:length(list_insurance))) {
+  assur <- read_html(paste("https://www.opinion-assurances.fr",list_insurance[i],sep=""))
+  list_avis <- str_split(html_nodes(assur, ".pull-right") %>% html_attr("href"), " ")
+  list_avis_sans_NA <- list_avis[!is.na(list_avis)]
+  try({
+  for (j in c(1:length(list_avis_sans_NA))) {
+    liste_element <- list()
+    avis <- read_html(paste(basis,list_avis_sans_NA[j], sep = ""))
+    note <- str_split(html_text(html_nodes(avis,".alf_label")), " ")
+    for (k in c(1:length(note))) {
+      texte<-str_sub(note[k],5,length(note[k])-6)
+      liste_element[length(liste_element)+1] <- texte
+    }
+    opinion <- str_split(html_text(html_nodes(avis, ".break")), "\r\n\t\r\n")[[1]]
+    for (k in c(1:length(opinion))) {
+      texte <- str_trim(opinion[k])
+      liste_element[length(liste_element)+1] <- texte
+    }
+    t <- data.frame(liste_element)
+    colnames(t) <- c("Niveaux_des_prix", "Qualite_du_service_client", "Qualite_garantie",
+                "Satisfaction", "Resume", "Plus", "Moins")
+    data <- rbind(data, t)
+    print(nrow(data))
+    }})
+}
+data
+}
+
+extract_opinion()
