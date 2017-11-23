@@ -54,7 +54,7 @@ extract <- function(liste_assu, ancien_fichier) {
   for (i in 1:nrow(liste_assu)) {
     ancien <- rbind(ancien, recuperer(liste_assu$Identificateur[i], liste_assu$Assurance[i]))
   }
-  write.csv(ancien, ancien_fichier,fileEncoding="latin1")
+  write.csv(ancien, ancien_fichier, fileEncoding = "latin1")
 }
 extract(liste_assu,"Assurances.csv")
 
