@@ -1,0 +1,238 @@
+library(dygraphs)
+library(xts)
+library(lubridate) # formatage des dates
+
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+#' @examples : barplot(1:5, col=gg_color_hue(5))
+
+# FONCTION POUR TESTER LES FORMATS DE DATE AUTOMATIQUEMENT ----------------
+
+#time_format = 3 caractères parmi y(year),m(month),d(day) 
+#               OU 3 caracteres parmi h(hour),m(minute),s(second)
+#               OU 6 caracteres  (3 de chaque, separes par un underscore "_")
+#               OU (try_all) qui les teste tous
+# noter que les formats abreges avec deux caracteres du type %b-%Y ne marchent pas (mois character et non numeric) alors que %m-%Y marche (tambouille interne de strptime)
+
+check_date_formatting = function(vector_character_dates,
+                               vector_potential_formats = "all") {
+  if (all(is.POSIXct(vector_character_dates)||is.POSIXlt(vector_character_dates))) {
+    return(list(format_kept = "ymd_hms", formatted_dates = vector_character_dates))
+  }
+  if(vector_potential_formats == "all") {
+    vector_potential_formats = paste0(c("dmy", "ymd", "ydm", "mdy", "myd", "dym"), "_hms")
+  }
+  for (date_class in vector_potential_formats) {
+    date_class_fun = eval(parse(text = date_class))
+    res = date_class_fun(vector_character_dates, truncated = 4, quiet = TRUE)
+    if(sum(is.na(res)) < 0.0001) {
+      return(list(format_kept = date_class,formatted_dates = res))      
+    }
+  }
+  warning("Aucun format n'a été trouvé")
+  return(list(format_kept = NA, formatted_dates = NA))
+}
+
+#' @example check_date_formatting(c("23/07/1991","07/04/2008"))
+#' @example check_date_formatting(c("23/07/1991","07/04/2008"), "ymd")
+
+#FONCTION CUSTOMISEE POUR TRACER UNE SERIE TEMPORELLE AU FOMAT BARCHART ----------------------
+dyBarChart = function(dygraph, multiple = FALSE) {
+  if (multiple) {
+    return(dyPlotter(dygraph = dygraph,
+                     name = "MultiColumn",
+                     path = system.file("examples/plotters/multicolumn.js",
+                                        package = "dygraphs")))
+  } else {
+    return(dyPlotter(dygraph = dygraph,
+                     name = "BarChart",
+                     path = system.file("examples/plotters/barchart.js",
+                                        package = "dygraphs")))
+  }
+}
+
+#FONCTION CUSTOMISEE POUR PERMETTRE D'AVOIR UN CURSEUR INTERACTIF QUI RELIE LE POINT SURVOLEE AVEC LES ASCISSES ET ORDONNEES
+dyCrosshair <- function(dygraph, 
+                        direction = c("both", "horizontal", "vertical")) {
+  dyPlugin(
+    dygraph = dygraph,
+    name = "Crosshair",
+    path = system.file("plugins/crosshair.js", 
+                       package = "dygraphs"),
+    options = list(direction = match.arg(direction))
+  )
+}
+
+
+# FONCTION POUR VISUALISER UNE SERIE TEMPORELLE -------------------------------------------------
+
+#graph_type="stem", "step", "line","bar"
+#' @parameter data_OBJECT is a dataframe containing your variables
+#' @parameter time_var_name is a character containing the name of the data_OBJECT variable used for x-axis
+#' @parameter var_names is a character vector containing the name of the data_OBJECT variable used for x-axis
+Visualize_as_time_serie = function(data_OBJECT,
+                                 time_var_name,
+                                 var_names,
+                                 control_var_name = "none",
+                                 time_format = "all",
+                                 graph_type = "line",
+                                 cursor_crosshair = "both",
+                                 display_grid = "none",
+                                 stack_graphs = F,
+                                 add_points = F,
+                                 transparency_percentage = 0,
+                                 ylab = "none") {
+  
+  subset_data = as.matrix(data_OBJECT[, var_names])
+  colnames(subset_data) = var_names # on est oblige de le remettre car dans le cas ou il n'y a qu'une variable, cela redevient un vecteur et perd le nom
+  
+  #probleme : as.Date a besoin d'avoir un jour specifie meme si on demande un format mois/annee
+  time_var = check_date_formatting(data_OBJECT[, time_var_name], vector_potential_formats = time_format)$formatted_dates
+  time_data = xts(subset_data, order.by = time_var)
+  
+  p = dygraph(time_data,
+            ylab = ifelse(ylab == "none", "", ylab)) %>%
+    dyOptions(stackedGraph = stack_graphs,
+              stepPlot = (graph_type == "step"),
+              stemPlot = (graph_type == "stem"),
+              drawPoints = add_points, pointSize = 2*add_points,
+              fillGraph = (transparency_percentage > 0),fillAlpha = transparency_percentage,
+              includeZero = TRUE,
+              drawAxesAtZero = TRUE,
+              drawGrid = FALSE
+    ) %>%
+    dyHighlight(highlightCircleSize = 4, 
+                highlightSeriesBackgroundAlpha = 0.5,
+                highlightSeriesOpts = list(strokeWidth = 2),
+                hideOnMouseOut = TRUE) %>%
+    dyRangeSelector() %>%
+    dyRoller(rollPeriod = 1)
+  
+  if(display_grid %in% c("x", "both")) {
+    p = p %>% dyAxis("x", drawGrid = TRUE)
+  }
+  if(display_grid %in% c("y", "both")) {
+    p = p %>% dyAxis("y", drawGrid = TRUE)
+  }
+  
+  if(cursor_crosshair != "none") {
+    p = p %>%
+      dyCrosshair(direction = cursor_crosshair) 
+  }
+  if(graph_type == "bar") {
+    p = p %>% dyBarChart(multiple = (length(var_names) > 1))
+  }
+  
+  if(control_var_name %in% names(data_OBJECT)) {
+    var_control = as.factor(data_OBJECT[, control_var_name])
+    ribbonData = match(var_control, levels(var_control)) / nlevels(var_control)
+    p = p %>% dyRibbon(data = ribbonData, palette = gg_color_hue(nlevels(var_control) + 1),top = 0.05, bottom = 0)
+  }
+  return(p)
+}
+
+temp_data=data.frame(mdeath = as.vector(as.numeric(mdeaths)),
+                     fdeath = as.vector(as.numeric(fdeaths)),
+                     saison = factor(rep(c("Hiver", "Hiver", rep(c("Printemps", "Ete", "Automne"), each = 3), "Hiver"), 6)),
+                     date = paste0("01", rep(c(paste0("0", 1:9), 10:12), times = 6), rep(1974:1979, each = 12)),
+                     stringsAsFactors = F)
+
+#' @example Visualize_as_time_serie(temp_data,var_names =c("mdeath","fdeath"),time_var_name ="date") # graph_type = "line" the default
+#' @example Visualize_as_time_serie(temp_data,var_names =c("mdeath","fdeath"),time_var_name ="date",graph_type = "bar")
+#' @example Visualize_as_time_serie(temp_data,var_names =c("mdeath","fdeath"),time_var_name ="date",graph_type = "stem")
+#' @example Visualize_as_time_serie(temp_data,var_names =c("mdeath","fdeath"),time_var_name ="date",graph_type = "step")
+#' @example Visualize_as_time_serie(temp_data,var_names =c("mdeath","fdeath"),time_var_name ="date",add_points=T)
+#' @example Visualize_as_time_serie(temp_data,var_names =c("mdeath","fdeath"),time_var_name ="date",stack_graphs =  T,transparency_percentage = 0.3)
+#' @example Visualize_as_time_serie(temp_data,var_names =c("mdeath","fdeath"),time_var_name ="date",control_var_name = "saison") 
+# Visualize_as_time_serie(temp_data,var_names =c("mdeath","fdeath"),time_var_name ="date",cursor_crosshair = "none",display_grid="both") 
+
+
+
+
+annotate_time_serie=function(dygraph, df_annotations, time_format = "all") {
+  # df_annotations est un data.frame dont les colonnes sont "from","to","axis","color","text"
+  df_series = data.frame(lapply(df_annotations, as.character), stringsAsFactors = FALSE)
+  
+  
+  #on ajoute les colonnes manquantes et initialise les valeurs par defaut
+  df_complete_series = data.frame("from" = rep(NA, nrow(df_series)),
+                                "to" = NA,
+                                "axis" = "x",
+                                "color" = NA,
+                                "text" = "",
+                                stringsAsFactors = F)
+  
+  df_complete_series[, match(names(df_series), names(df_complete_series))] = df_series
+  
+  df_complete_series$to[which(df_complete_series$to %in% c(NA, "NA", ""))] = df_complete_series$from[which(df_complete_series$to %in% c(NA, "NA", ""))]
+  df_complete_series$color[which(df_complete_series$color %in% c(NA, "NA", ""))] = 
+    ifelse((df_complete_series$from[which(df_complete_series$color %in% c(NA, "NA", ""))] == 
+              df_complete_series$to[which(df_complete_series$color %in% c(NA, "NA", ""))]), "black", "lightgrey")
+  df_complete_series$text[which(df_complete_series$text %in% c(NA, "NA"))] = ""
+  
+  #INITIALISATION
+  p = dygraph
+  
+  #TRACE SUR LES ABSCISSES
+  # on verifie les formats de date
+  df_complete_series_X = df_complete_series[which(df_complete_series$axis == "x"),]
+  df_complete_series_X$from = check_date_formatting(df_complete_series_X$from,vector_potential_formats = time_format)$formatted_dates
+  df_complete_series_X$to = check_date_formatting(df_complete_series_X$to,vector_potential_formats = time_format)$formatted_dates
+  
+  for(i in 1:nrow(df_complete_series_X)) {
+    current_serie = df_complete_series_X[i, ]
+    # si c'est un evenement d'une duree nulle, on trace juste un trait a la date d'occurrence
+    if (identical(current_serie$from, current_serie$to)) {
+      p = p %>% dyEvent(x = current_serie$from, label = current_serie$text, labelLoc = "bottom", color = current_serie$color, strokePattern = "dashed")
+    } else {
+      # si c'est un evenement d'une duree avec une duree, on colore la periode
+      time_serie_range = check_date_formatting(dygraph$x$data[[1]], vector_potential_formats = "ymd_hms")$formatted_dates
+      annotation_position = time_serie_range[floor(mean(which(time_serie_range <= current_serie$to & time_serie_range >= current_serie$from)))]
+      p = p %>% 
+        dyShading(from = current_serie$from, to = current_serie$to, color = current_serie$color, axis = current_serie$axis) %>%
+        dyAnnotation(x = annotation_position, text = current_serie$text, attachAtBottom = TRUE, width = 6 + 6*min(20, nchar(current_serie$text)), height = 25, tooltip = current_serie$text)
+    }
+  }
+  #TRACE SUR LES ABSCISSES
+  # on verifie les formats de date
+  df_complete_series_Y = df_complete_series[which(df_complete_series$axis == "y"), ]
+  df_complete_series_Y$from = as.numeric(df_complete_series_Y$from)
+  df_complete_series_Y$to = as.numeric(df_complete_series_Y$to)
+  
+  for(i in 1:nrow(df_complete_series_Y)) {
+    current_serie = df_complete_series_Y[i, ]
+    
+    # si c'est un evenement d'une duree nulle, on trace juste un trait a la date d'occurrence
+    if (identical(current_serie$from, current_serie$to)) {
+      p = p %>% dyLimit(limit = current_serie$from,label = current_serie$text, labelLoc = "left",color = current_serie$color,strokePattern = "dashed")
+    } else {
+      # si c'est un evenement d'une duree avec une duree, on colore la periode
+      annotation_position = mean(c(current_serie$from, current_serie$to))
+      p = p %>% 
+        dyShading(from = current_serie$from, to = current_serie$to,color = current_serie$color, axis = current_serie$axis) %>%
+        dyLimit(limit = annotation_position, label = current_serie$text, labelLoc = "left", color = "black", strokePattern = "dashed")
+    }
+  }
+  return(p)
+}
+
+
+# my_data=data.frame(mdeath=as.vector(as.numeric(mdeaths)),
+#                    fdeath=as.vector(as.numeric(fdeaths)),
+#                    date=paste0("01",rep(c(paste0("0",1:9),10:12),times=6),rep(1974:1979,each=12)),
+#                    stringsAsFactors = F)
+# 
+# my_annotation=data.frame(from=c("7/04/1974",560-179,1500,"23/07/1978"),
+#                          to=c("25/09/1975",560+179,"",NA),
+#                          axis=c("x","y","y","x"),
+#                          color=c("lightcoral","lightgrey","lightgrey","lightcoral"),
+#                          text=c("periode au hasard avec un très long label","moy +/- std décès femmes","moyenne décès hommes","date au hasard"))
+# 
+# p1 = Visualize_as_time_serie(my_data,var_names =c("mdeath","fdeath"),time_var_name ="date") # graph_type = "line" the default
+# annotate_time_serie(p1,my_annotation)
+# p1 %>% annotate_time_serie(my_annotation)#la fonction est compatible avec l'operateur pipe!
+
+
