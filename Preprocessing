@@ -1,0 +1,313 @@
+rm(list=ls())
+library("hunspell")
+library("tm")
+#install.packages("RcmdrPlugin.temis")
+library(RColorBrewer)
+library("wordcloud")
+library("stringr")
+library(igraph)
+library(graphics)
+library("koRpus")
+library("SnowballC")
+#library(RcmdrPlugin.temis)
+
+setwd("D:/ENSAE/2èmeannée/Statsapp")
+donnees <- read.csv2("Extraction.csv")
+dico <- read.table("D:/Téléchargement/liste_francais.txt")
+#Part os Speech tagging: détermine la classe grammaticale des différents éléments de la phrase. Permet d'améliorer le correcteur orthographique
+
+correcteur_orthographique1<- function(phrase){
+  phrase<-tolower(phrase)
+  liste <- str_split(phrase," ")[[1]]
+  chaine<- ""
+  for (x in liste){
+    if (hunspell_check(x,dict=dictionary("fr"))|str_length(x)==1|x=="qu"){
+      chaine <- paste(chaine,x)
+    }
+    else{
+      suggestion<-hunspell_suggest(x, dict = dictionary("fr"))[[1]]
+      vrai <- TRUE
+      i <- 1
+      while (vrai & i<5){
+        if (suggestion[i] %in% dico[[1]]){
+          chaine <- paste(chaine,suggestion[i])
+          vrai <- FALSE
+        }
+        else{
+          i <- i+1
+        }
+      }
+      if (i==5){
+        chaine <- paste(chaine,x)
+      }
+    }
+  }
+  chaine
+}
+
+correction_dataframe <- function(dataframe,colonne){
+  ref <- dataframe[[colonne]]
+  for (i in c(1:nrow(dataframe))){
+    dataframe$corrige[i]<-correcteur_orthographique1(ref[i])
+  }
+  dataframe
+}
+
+lemmatizer<-function(file,adresse){
+  text <- data.frame(treetag(file,treetagger = "manual",TT.tknz=FALSE,lang="fr",encoding="Latin1",TT.options=list(path=adresse,preset = "fr"))@TT.res[,c(1,2,3)])
+  lemme <- ""
+  for (i in c(1:nrow(text))){
+    if (text$lemma[i]=="<unknown>"){
+      lemme <- paste(lemme,text$token[i])
+    }
+    else{
+      lemme <- paste(lemme,text$lemma[i])
+    }
+  }
+  v <- array(dim = c(1,nrow(text)-8))
+  for (i in 8:nrow(text)){
+    v[i-7] <- text$tag[i]
+  }
+  names(v) <- text$token[c(8:nrow(text))]
+  return (c(lemme,v))
+}
+
+lemmatizer_dataframe <- function(data,adresse,colonne){
+  colref <-data[[colonne]]
+  for (i in 1:nrow(data)){
+    file.create(paste(toString(i),".txt",sep=""))
+    write.table(tolower(colref[i]),file=paste(toString(i),".txt",sep=""),fileEncoding = "Latin1")
+    result<- lemmatizer(paste(toString(i),".txt",sep=""),adresse)
+    data$corrige[i] <- result[1]
+    data$tag[i] <- result[2:length(result)]
+    file.remove(paste(toString(i),".txt",sep=""))
+  }
+  data
+}
+
+#On enlève l'ensemble des accents
+supprime_accent<-function(table_tm){
+  table_tm<-str_replace_all(table_tm, "[AÁÀÂÄÃÅáàâäãå]", "a")
+  table_tm<-str_replace_all(table_tm, "[EÉÈÊËéèêë]", "e")
+  table_tm<-str_replace_all(table_tm, "[IÍÏÎÌíìîï]", "i")
+  table_tm<-str_replace_all(table_tm, "[NÑñ]", "n")
+  table_tm<-str_replace_all(table_tm, "[OÓÒÔÖÕóòôöõ]", "o")
+  table_tm<-str_replace_all(table_tm, "[UÚÙÛÜúùûü]", "u")
+  table_tm<-str_replace_all(table_tm, "[YÝýÿ]", "y")
+  Corpus(VectorSource(table_tm), readerControl=list(reader=readPlain, language="fr"))
+}
+a <- "a"
+b <- "b"
+#On supprime nombre, ponctuation et majuscules
+harmonise_notation<-function(corpus){
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  corpus <- tm_map(corpus, content_transformer(removeNumbers))
+  corpus <- tm_map(corpus, content_transformer(removePunctuation))
+  corpus
+}
+
+enleve_espace<-function(corpus){
+  corpus <- tm_map(corpus, content_transformer(stripWhitespace))
+  corpus
+}
+
+#Suppression des stopwords 
+enleve_stopwords<-function(corpus){
+  myStopWords<-c(stopwords("french"))
+  corpus <- tm_map(corpus, removeWords, myStopWords)
+  corpus
+}
+
+#On créé la DTM
+creation_DTM<-function(corpus,sparseness){
+  dtm <- DocumentTermMatrix(corpus,control=list(weighting=weightTf))
+  dtm<-removeSparseTerms(dtm,sparseness)
+  dtm
+}
+
+preprocess_text<-function(data,colonne,sparseness=0.99,file="C:/TreeTagger"){
+  dataframe_corrige <- correction_dataframe(data,colonne)
+  dataframe_corrige <- lemmatizer_dataframe(dataframe_corrige,file,colonne)
+  table_tm<- dataframe_corrige$corrige
+  corpus <- supprime_accent(table_tm)
+  corpus <- harmonise_notation(corpus)
+  corpus <- enleve_espace(corpus)
+  corpus <- enleve_stopwords(corpus)
+  dtm <- creation_DTM(corpus,sparseness)
+  dtm
+}
+
+k<-donnees[1:100,]
+debut <- Sys.time()
+dtm<- preprocess_text(k,"Resume",sparseness = 0.95)
+Sys.time()-debut
+
+compar<-function(colonne,dtm){
+  par(mfrow=c(2,1),bg="beige")
+  words_preprocessing<-sapply(strsplit(as.character(donnees[[colonne]]), " "), length)
+  barplot(table(words_preprocessing), xlab="Nombre de termes avant le préprocessiong"
+        ,col='blue')
+  barplot(table(apply(dtm, 1, sum)), xlab="Nombre de termes dans la DTM",col='blue')
+}
+compar("Resume",dtm)
+
+freq_word<-function(dtm_in){
+  # Somme des occurrences de mots et tri par ordre décroissant
+  v <- sort(colSums(as.matrix(dtm_in)),decreasing=TRUE)
+  # Table des fréquences
+  d1 <- data.frame(word = names(v),freq=v)
+  # Pourcentage
+  d1[,3]<-round(as.numeric(d1[,2])*100/nrow(as.matrix(dtm_in)),2)
+  d1
+}
+
+dd<-freq_word(dtm)
+
+nuage_de_mots <- function(dtm){
+  par(mfrow=c(1,1),bg="white")
+  dd<-freq_word(dtm)
+  palette_couleur <-brewer.pal(n = 8, name = "Dark2")
+  wordcloud(dd$word,dd$freq, scale=c(3,2),min.freq = 20, max.words = 200, random.order = F,colors
+          = palette_couleur)
+}
+nuage_de_mots(dtm)
+
+cooccurrence<-function(dtm_in){
+  # Préparation des données
+  d <- t(as.matrix(dtm_in))
+  # Calcul de la matrice de distance utilisant méthode binaire (absence/presence)
+  d <- dist(d,method="binary")
+  d <- as.matrix(d)
+  d <- 1 - d
+  # Création d’un graphe de toutes les co-occurrences possibles de mots
+  # Un graphe non orienté dont seul le triangle inférieur gauche est utilisé pour créer les liens.
+  n <- graph.adjacency(d, mode="lower", weighted=T, diag=F)
+  # Attributs associés au graphe
+  n <- set.vertex.attribute(
+    n, # graphe
+    "name", # nom de l’attribut
+    1:(length(d[1,])), # index des sommets
+    as.character( colnames(d)) # nom des termes
+  )
+  # Désigne chaque co-occurrence - edge
+  el <- data.frame(
+    edge1 = get.edgelist(n,name=T)[,1], # Terme 1
+    edge2 = get.edgelist(n,name=T)[,2], # Terme 2
+    weight = get.edge.attribute(n, "weight"), # Nb de titre où les Termes 1 et 2 sont cooccurrents
+    stringsAsFactors = FALSE
+  )
+  #Sélection des liens (Co-occurrences) les plus fréquents
+  # Désigne chaque co-occurrence possible de mot de la DTM
+  edges <- length(el[,1])
+  # Sélectionne les co-occurences existantes
+  # co-occurrence qui apparaisse au moins 1 fois dans la DTM)
+  el2 <- subset(el, el[,3] >= 0) # le poids du lien (où 0= les deux termes n’apparaissent jamais ensemble)
+# Création d’un graphe de co-occurrences non nulles des mots
+n2 <- graph.edgelist( matrix( as.matrix(el2)[,1:2], ncol=2 ), directed =F)
+# Pondération des liens
+# Plus deux mots sont associés fréquemment dans les titres, plus le poids sera élevé
+n2 <- set.edge.attribute(n2,"weight",
+                         1:(length(get.edgelist(n2)[,1])),el2[,3])
+# Vertex identification : le nom des sommets du graphique correspond au mot de la DTM
+V(n2)$id <-as.character( colnames(d))
+return(n2)
+} # fin de la fonction
+# Application de la fonction de cooccurrence
+g<-cooccurrence(dtm)
+
+centrality<-function(graph,method_cen,freq_var,nom) {
+  par(mfrow=c(1,1))
+  # Detection de communauté - minimum spanning tree
+  mst <- minimum.spanning.tree(graph,
+                               weights = 1 - get.edge.attribute(graph, "weight"),
+                               algorithm="prim")
+  # Mesures
+  #Closeness centrality
+  close_B_S <- closeness (graph) * ( vcount (graph) - 1)
+  top_clo<-sort (close_B_S, decreasing = TRUE)[1:10]
+  # Eigenvector centrality
+  eigen_B <-evcent (graph)
+  top_eig<-sort ( eigen_B[[1]], decreasing = TRUE)[1:10]
+  # Standardized Betweenness centrality
+  betw_B_S <- betweenness (graph,directed=FALSE) /(( vcount (graph) - 1) * ( vcount (graph)-
+                                                                               2)/2)
+  top_bet<-sort (betw_B_S, decreasing = TRUE)[1:10]
+  # Standardized degree centrality
+  deg_B_S <- degree (graph, loops = FALSE) /( vcount(graph) - 1)
+  top_deg<-sort(deg_B_S, decreasing = TRUE)[1:10]
+  # Table des mesures de centralités
+  table_centralite<-cbind(degree=deg_B_S,closeness=close_B_S,betweenness=betw_B_S,eigen=eigen_B[[1]])
+  top_centralite<-cbind(seq(1:10),names(top_clo),names(top_eig),names(top_bet),
+                        names(top_deg))
+  colnames(top_centralite)<-c("Rank","Closeness","Eigenvalue","Betweeness","Degree")
+  # Corrélation des mesures de centralité
+  df <- data.frame (deg_B_S, close_B_S, betw_B_S, eigen_B[[1]])
+  Pearson_cor <- cor (df) # Pearson correlation matrix
+  Spearman_cor <- cor (df, method = "spearman") # Spearman correlation matrix
+  Kendall_cor <- cor (df, method = "kendall") # Kendall correlation matrix
+  table_cor<-cbind(Pearson_cor, Spearman_cor, Kendall_cor)
+  # Type de centralité représentée graphiquement - Algorithmes
+  
+  if (method_cen=="cnt_b"){
+    # Centrality betweenness
+    cen<-betw_B_S}
+  
+  if (method_cen=="cnt_d"){
+    # Centrality degree
+    cen<-deg_B_S }
+  
+  if (method_cen=="cnt_e"){
+    # Centrality Eigenvector
+    cen <- eigen_B$vector }
+  
+  # Couleurs
+  cen <- cen - min(cen)
+  cen <- cen * 100 / max(cen)
+  cen <- trunc(cen + 1)
+  cen <- cm.colors(101)[cen]
+  
+  # Grandeur du cercle proportionnelle à la fréquence d’apparition du mot
+  print(length(V(mst)$names))
+  mst <- delete.vertices(mst, V(mst)[!V(mst)$names %in% nom])
+  plot(mst)
+  freq_var <- freq_var[nom,]
+  print(length(V(mst)$names))
+  # Graphique
+  plot_cent<-
+    plot(mst, layout=layout.fruchterman.reingold,
+         vertex.color = cen, # color vertices by community
+         vertex.label=nom, # no vertex label (name)
+         vertex.size=freq_var*0.1,
+         edge.color="grey55",
+         edge.arrow.size=1)
+  # Listing des mesures
+  return(list(mesures=table_centralite, top=top_centralite, correlation=table_cor)) 
+  } # fin de la
+#fonction
+#Application de la fonction de centralité
+#Inputs
+# Selection des mots les plus fréquents
+d <- t(as.matrix(dtm[,-1]))
+length(rownames(d))
+freq <- NULL
+for (i in 1:length( rownames(d) )) {
+  freq[i] = sum( d[i,] ) }
+freq<-as.matrix(freq)
+rownames(freq)<-rownames(d)
+
+select<-subset(freq,freq>25)
+nom<-array(dim = c(length(select),1))
+for (i in c(1:length(select))){
+nom[i]<-names(select[i,])
+}
+
+#Execution
+cent<-centrality(g,"cnt_b",select,nom)
+# Outputs
+
+# Représentation graphique des mesures de centralité (Scatterplot Matrix)
+pairs (~degree+ closeness+ betweenness+ eigen, data = cent[[1]], main = " Scatterplot des
+       mesures de centralité ")
+# Tables
+cent[[2]] # Les 10 mots les plus centraux
+cent[[3]] # Corrélation entre les mesures de centralité
