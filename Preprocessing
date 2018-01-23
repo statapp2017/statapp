@@ -5,7 +5,7 @@ library("tm")
 library(RColorBrewer)
 library("wordcloud")
 library("stringr")
-library(igraph)
+library("igraph")
 library(graphics)
 library("koRpus")
 library("SnowballC")
@@ -61,15 +61,30 @@ lemmatizer<-function(file,adresse){
       lemme <- paste(lemme,text$token[i])
     }
     else{
-      lemme <- paste(lemme,text$lemma[i])
+      liste <- str_split(text$lemma[i],"")[[1]]
+      if ("|" %in% liste){
+        for (j in c(1:length(liste))){
+          if (liste[j]=="|"){
+            reference <- j+1
+          }
+        }
+        lemme <- paste(lemme,str_sub(text$lemma[i],reference))
+      }
+      else{
+        lemme <- paste(lemme,text$lemma[i])
+      }
     }
   }
+  lemme <- str_replace_all(lemme,"Ãª","ê")
+  lemme <- str_replace_all(lemme," x \" \" @card@ " ,"")
+  lemme <- str_replace_all(lemme,"\"","")
+  lemme <- str_replace_all(lemme,"\ \"","")
   v <- array(dim = c(1,nrow(text)-8))
   for (i in 8:nrow(text)){
     v[i-7] <- text$tag[i]
   }
   names(v) <- text$token[c(8:nrow(text))]
-  return (c(lemme,v))
+  return (list(lemme,v))
 }
 
 lemmatizer_dataframe <- function(data,adresse,colonne){
@@ -78,7 +93,7 @@ lemmatizer_dataframe <- function(data,adresse,colonne){
     file.create(paste(toString(i),".txt",sep=""))
     write.table(tolower(colref[i]),file=paste(toString(i),".txt",sep=""),fileEncoding = "Latin1")
     result<- lemmatizer(paste(toString(i),".txt",sep=""),adresse)
-    data$corrige[i] <- result[1]
+    data$corrige[i] <- result[[1]][1]
     data$tag[i] <- result[2:length(result)]
     file.remove(paste(toString(i),".txt",sep=""))
   }
@@ -96,8 +111,7 @@ supprime_accent<-function(table_tm){
   table_tm<-str_replace_all(table_tm, "[YÝýÿ]", "y")
   Corpus(VectorSource(table_tm), readerControl=list(reader=readPlain, language="fr"))
 }
-a <- "a"
-b <- "b"
+
 #On supprime nombre, ponctuation et majuscules
 harmonise_notation<-function(corpus){
   corpus <- tm_map(corpus, content_transformer(tolower))
@@ -134,13 +148,16 @@ preprocess_text<-function(data,colonne,sparseness=0.99,file="C:/TreeTagger"){
   corpus <- enleve_espace(corpus)
   corpus <- enleve_stopwords(corpus)
   dtm <- creation_DTM(corpus,sparseness)
-  dtm
+  list(dtm,dataframe_corrige)
 }
 
-k<-donnees[1:100,]
 debut <- Sys.time()
-dtm<- preprocess_text(k,"Resume",sparseness = 0.95)
+result<- preprocess_text(donnees,"Resume",sparseness = 0.95)
 Sys.time()-debut
+dtm <- result[[1]]
+dataframe_corrige <- result[[2]]
+saveRDS(dtm, file = "dtm.rds")
+saveRDS(dataframe_corrige,file="dataframe_corrige.rds")
 
 compar<-function(colonne,dtm){
   par(mfrow=c(2,1),bg="beige")
@@ -215,7 +232,7 @@ return(n2)
 # Application de la fonction de cooccurrence
 g<-cooccurrence(dtm)
 
-centrality<-function(graph,method_cen,freq_var,nom) {
+centrality<-function(graph,method_cen,freq_var) {
   par(mfrow=c(1,1))
   # Detection de communauté - minimum spanning tree
   mst <- minimum.spanning.tree(graph,
@@ -267,26 +284,26 @@ centrality<-function(graph,method_cen,freq_var,nom) {
   cen <- cm.colors(101)[cen]
   
   # Grandeur du cercle proportionnelle à la fréquence d’apparition du mot
-  print(length(V(mst)$names))
-  mst <- delete.vertices(mst, V(mst)[!V(mst)$names %in% nom])
-  plot(mst)
-  freq_var <- freq_var[nom,]
-  print(length(V(mst)$names))
+  mst <- delete.vertices(mst, V(mst)[degree(mst)<3])
+  freq_var <- freq_var[V(mst)$name,]
   # Graphique
   plot_cent<-
     plot(mst, layout=layout.fruchterman.reingold,
          vertex.color = cen, # color vertices by community
-         vertex.label=nom, # no vertex label (name)
-         vertex.size=freq_var*0.1,
+         vertex.label=V(mst)$name, # no vertex label (name)
+         vertex.size=freq_var*0.2,
          edge.color="grey55",
          edge.arrow.size=1)
   # Listing des mesures
   return(list(mesures=table_centralite, top=top_centralite, correlation=table_cor)) 
   } # fin de la
+
+
 #fonction
 #Application de la fonction de centralité
 #Inputs
 # Selection des mots les plus fréquents
+
 d <- t(as.matrix(dtm[,-1]))
 length(rownames(d))
 freq <- NULL
@@ -294,15 +311,8 @@ for (i in 1:length( rownames(d) )) {
   freq[i] = sum( d[i,] ) }
 freq<-as.matrix(freq)
 rownames(freq)<-rownames(d)
-
-select<-subset(freq,freq>25)
-nom<-array(dim = c(length(select),1))
-for (i in c(1:length(select))){
-nom[i]<-names(select[i,])
-}
-
+cent<-centrality(g,"cnt_e",freq)
 #Execution
-cent<-centrality(g,"cnt_b",select,nom)
 # Outputs
 
 # Représentation graphique des mesures de centralité (Scatterplot Matrix)
@@ -311,3 +321,50 @@ pairs (~degree+ closeness+ betweenness+ eigen, data = cent[[1]], main = " Scatte
 # Tables
 cent[[2]] # Les 10 mots les plus centraux
 cent[[3]] # Corrélation entre les mesures de centralité
+
+
+communaute<-function(graph,method_com,freq_var){
+  # Detection de communauté - minimum spanning tree
+  mst <- minimum.spanning.tree(graph,
+                               weights = 1 - get.edge.attribute(graph, "weight"),
+                               algorithm="prim")
+  # Type de communauté - Algorithmes
+  if (method_com=="com_fg"){ # Communautés fast greedy
+    com<-fastgreedy.community(mst, merges=TRUE, modularity=TRUE)
+    groups <- as.matrix( table(fastgreedy.community(mst)$membership) ) }
+  
+  if (method_com=="com_bw"){ # Communautés betweenness
+    com <- edge.betweenness.community(mst, directed=F)
+    groups <- as.matrix( table(edge.betweenness.community(mst)$membership) ) }
+  
+  if (method_com=="com_rw"){ # Communautés Random walks
+    com <- walktrap.community(mst,merges=TRUE, modularity=TRUE)
+    groups <- as.matrix( table(walktrap.community(mst)$membership) ) }
+  # Création d'une table de groupe
+  com_m <- membership(com)
+  groupe <-list()
+  for (i in c(1:length(com_m))){
+    groupe[i]<-com_m[[i]][1]
+  }
+  groups <- data.frame( name = rownames(groups), freq = groups[,1])
+  group_members <- data.frame( vid = V(mst)$id, gp = groupe)
+  # Taille des cercles
+  mst <- delete.vertices(mst, V(mst)[degree(mst)<3])
+  freq_var <- freq_var[V(mst)$name,]
+  # Graphique
+  par(mfrow=c(1,1))
+  plot(mst, layout=layout.fruchterman.reingold,
+       vertex.color = com_m, # color vertices by community
+       vertex.label=V(mst)$id, # name
+       vertex.size=freq_var*0.2,
+       edge.color="grey55",
+       edge.arrow.size=1)
+  return(list(groups,group_members))
+} # fin de la fonction communauté
+
+algo<-"com_fg" # Communautés fast greedy
+#Execution
+communaute_fg<-communaute(g,algo,freq)
+# Outputs
+communaute_fg[[1]] # Nombre de mots par communauté
+communaute_fg[[2]] # Affectation des communautés
