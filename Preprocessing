@@ -18,7 +18,7 @@ dico <- read.table("D:/Téléchargement/liste_francais.txt")
 
 correcteur_orthographique1<- function(phrase){
   #Séparation de la phrase en mots 
-  liste <- tokenize_words(as.character(phrase), lowercase = TRUE)[[1]]
+  liste <- tokenize_words(as.character(gsub(" \n", ". ",phrase)), lowercase = TRUE)[[1]]
   chaine<- ""
   for (x in liste){
     #On regarde si l'orthographe du mots est correct
@@ -173,11 +173,6 @@ dataframe_corrige <- result[[2]]
 #saveRDS(dataframe_corrige,file="dataframe_corrige.rds")
 
 
-
-
-
-
-
 dtm<-readRDS("dtm.rds")
 #On regarde l'effet du preprocessing sur le nombre de mots 
 compar<-function(colonne,dtm){
@@ -254,104 +249,7 @@ return(n2)
 # Application de la fonction de cooccurrence
 g<-cooccurrence(dtm)
 
-centrality<-function(graph,method_cen,freq_var,suppr) {
-  par(mfrow=c(1,1))
-  # Detection de communauté - minimum spanning tree
-  mst <- minimum.spanning.tree(graph,
-                               weights = 1 - get.edge.attribute(graph, "weight"),
-                               algorithm="prim")
-  # Mesures
-  #Closeness centrality
-  close_B_S <- closeness (graph) * ( vcount (graph) - 1)
-  top_clo<-sort (close_B_S, decreasing = TRUE)[1:10]
-  # Eigenvector centrality
-  eigen_B <-evcent (graph)
-  top_eig<-sort ( eigen_B[[1]], decreasing = TRUE)[1:10]
-  # Standardized Betweenness centrality
-  betw_B_S <- betweenness (graph,directed=FALSE) /(( vcount (graph) - 1) * ( vcount (graph)-
-                                                                               2)/2)
-  top_bet<-sort (betw_B_S, decreasing = TRUE)[1:10]
-  # Standardized degree centrality
-  deg_B_S <- degree (graph, loops = FALSE) /( vcount(graph) - 1)
-  top_deg<-sort(deg_B_S, decreasing = TRUE)[1:10]
-  # Table des mesures de centralités
-  table_centralite<-cbind(degree=deg_B_S,closeness=close_B_S,betweenness=betw_B_S,eigen=eigen_B[[1]])
-  top_centralite<-cbind(seq(1:10),names(top_clo),names(top_eig),names(top_bet),
-                        names(top_deg))
-  colnames(top_centralite)<-c("Rank","Closeness","Eigenvalue","Betweeness","Degree")
-  # Corrélation des mesures de centralité
-  df <- data.frame (deg_B_S, close_B_S, betw_B_S, eigen_B[[1]])
-  Pearson_cor <- cor (df) # Pearson correlation matrix
-  Spearman_cor <- cor (df, method = "spearman") # Spearman correlation matrix
-  Kendall_cor <- cor (df, method = "kendall") # Kendall correlation matrix
-  table_cor<-cbind(Pearson_cor, Spearman_cor, Kendall_cor)
-  # Type de centralité représentée graphiquement - Algorithmes
-  
-  if (method_cen=="cnt_b"){
-    # Centrality betweenness
-    cen<-betw_B_S}
-  
-  if (method_cen=="cnt_d"){
-    # Centrality degree
-    cen<-deg_B_S }
-  
-  if (method_cen=="cnt_e"){
-    # Centrality Eigenvector
-    cen <- eigen_B$vector }
-  
-  # Couleurs
-  cen <- cen - min(cen)
-  cen <- cen * 100 / max(cen)
-  cen <- trunc(cen + 1)
-  cen <- cm.colors(101)[cen]
-  
-  # Grandeur du cercle proportionnelle à la fréquence d’apparition du mot
-  mst <- delete.vertices(mst,V(mst)[name %in% suppr])
-  mst <- delete.vertices(mst,V(mst)[name %in% c("etre","card","avoir")])
-  # Graphique
-  multiplicateur <- 20/log(max(freq_var))
-  plot_cent<-
-    plot(mst, layout=layout.fruchterman.reingold,
-         vertex.color = cen, # color vertices by community
-         vertex.label=V(mst)$name, # no vertex label (name)
-         vertex.size=log(freq_var)*multiplicateur,
-         edge.color="grey55",
-         edge.arrow.size=1)
-  # Listing des mesures
-  return(list(mesures=table_centralite, top=top_centralite, correlation=table_cor)) 
-  } # fin de la
-#fonction
-#Application de la fonction de centralité
-cent<-centrality_freq(53,"cnt_e",dtm)
-
-#Inputs
-# Selection des mots les plus fréquents
-centrality_freq<-function(n,method_cen,dtm){
-  d <- t(as.matrix(dtm[,-1]))
-  freq <- NULL
-  for (i in 1:length( rownames(d) )) {
-    freq[i] = sum( d[i,] ) }
-  freq<-as.matrix(freq)
-  rownames(freq)<-rownames(d)
-  freq<-freq[order(freq[,1],decreasing=T),]
-  t <-n+1
-  suppr <-names(freq[t:length(freq)])
-  freq<-freq[1:n]
-  cent<-centrality(g,method_cen,freq,suppr)
-  cent
-  }
-
-#Execution
-# Outputs
-
-# Représentation graphique des mesures de centralité (Scatterplot Matrix)
-pairs (~degree+ closeness+ betweenness+ eigen, data = cent[[1]], main = " Scatterplot des
-       mesures de centralité ")
-# Tables
-cent[[2]] # Les 10 mots les plus centraux
-cent[[3]] # Corrélation entre les mesures de centralité
-
-
+######################Algorithme de communauté###########################
 communaute<-function(graph,method_com,freq_var,suppr){
   # Detection de communauté - minimum spanning tree
   mst <- minimum.spanning.tree(graph,
@@ -360,36 +258,42 @@ communaute<-function(graph,method_com,freq_var,suppr){
   # Type de communauté - Algorithmes
   if (method_com=="com_fg"){ # Communautés fast greedy
     com<-fastgreedy.community(mst, merges=TRUE, modularity=TRUE)
-    groups <- as.matrix( table(fastgreedy.community(mst)$membership) ) }
+    groups <- as.matrix( table(fastgreedy.community(mst)$membership) ) 
+    titre<-"fastgreedy"}
   
   if (method_com=="com_bw"){ # Communautés betweenness
     com <- edge.betweenness.community(mst, directed=F)
-    groups <- as.matrix( table(edge.betweenness.community(mst)$membership) ) }
+    groups <- as.matrix( table(edge.betweenness.community(mst)$membership) ) 
+    titre<-"intermédiarité"}
   
   if (method_com=="com_rw"){ # Communautés Random walks
     com <- walktrap.community(mst,merges=TRUE, modularity=TRUE)
-    groups <- as.matrix( table(walktrap.community(mst)$membership) ) }
+    groups <- as.matrix( table(walktrap.community(mst)$membership) ) 
+    titre <-"walktrap"}
   # Création d'une table de groupe
   com_m <- membership(com)
   groupe <-list()
   for (i in c(1:length(com_m))){
-    groupe[i]<-com_m[[i]][1]
+    groupe[i]<-com_m[[i]]
   }
   groups <- data.frame( name = rownames(groups), freq = groups[,1])
-  group_members <- data.frame( vid = V(mst)$id, gp = groupe)
+  group_members <- data.frame( vid = V(mst)$id)
+  for (i in c(1:nrow(group_members))){
+    group_members$communaute[i]<-com_m[[i]]
+  }
   mst <- delete.vertices(mst,V(mst)[name %in% suppr])
   mst <- delete.vertices(mst,V(mst)[name %in% c("etre","card","avoir")])
   # Graphique
+  titre_tot <- paste("Détection de communauté basée sur la modularité",titre)
   multiplicateur <- 20/log(max(freq_var))
-  plot_cent<-
-    plot(mst, layout=layout.fruchterman.reingold,
-         vertex.color = com_m, # color vertices by community
+  plot(mst, layout=layout.fruchterman.reingold,
+        vertex.color=com_m,
          vertex.label=V(mst)$id, # name
          vertex.size=log(freq_var)*multiplicateur,
          edge.color="grey55",
-         edge.arrow.size=1)
+         edge.arrow.size=1,main=titre_tot)
   return(list(groups,group_members))
-} # fin de la fonction communauté
+} # fin de la fonction commnauté
 
 communaute_freq<-function(n,algo,dtm){
   d <- t(as.matrix(dtm[,-1]))
@@ -407,6 +311,6 @@ communaute_freq<-function(n,algo,dtm){
 }
 
 algo<-"com_fg" # Communautés fast greedy
-communaute_freq(53,algo,dtm)
-communaute_fg[[1]] # Nombre de mots par communauté
+communaute_fg <- communaute_freq(103,algo,dtm)
+communaute_fg[[1]]# Nombre de mots par communauté
 communaute_fg[[2]] # Affectation des communautés
