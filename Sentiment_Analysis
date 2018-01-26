@@ -1,0 +1,71 @@
+############################
+#                          #
+#    Sentiment Analysis    #
+#                          #
+############################
+
+# Input : un Data Frame à 7 colonnes
+# Output : un Data Frame à 8 colonnes (nouvelle colonne sentiment)
+
+### Librairies ###
+#install.packages("translate")
+#install.packages("tidytext")
+#install.packages("tm")
+
+rm(list = ls())
+library(translate)
+library(tidytext)
+library(stringr)
+library(dplyr)
+library(data.table)
+library(sentimentr)
+
+### Importer les données ###
+setwd("/Users/okabeshu/Documents/ENSAE/StatApp")
+donnees <- read.csv2("Extraction.csv", encoding = "latin1") # Messages extraits
+stop_words <- get_stopwords(language = "fr", source = "snowball") # Stop words en français
+
+# DataFrame pour l'étude des sentiments
+hash_sentiment <- read.csv("hash_sentiment_fr.csv", encoding = "utf8")
+setDT(hash_sentiment) # Transformer en data.tables
+setkey(hash_sentiment)
+
+# DataFrame des valence shifters pour l'étude des sentiments
+hash_valence <- read.csv("hash_valence_fr.csv", encoding = "utf8")
+setDT(hash_valence)
+setkey(hash_valence)
+
+### Exemple de message ###
+ex <- donnees[5, ]
+message_brut <- ex$Resume # Message à analyser en français
+#message <- as.character(message_brut)
+message <- "j'ai souscrit, le 1 er novembre 2015, une garantie de loyer impayé car je loue un appartement. mon locataire a donné congé pour le 30 juin 2016, Pacifica ne veut pas annuler cette assurance avant la date anniversaire de l'échéance, c'est à dire le 1er décembre prochain, même si je n'ai pas de locataire. Il faut savoir que le G.L.I est subordonnée à une location et pourtant si le locataire vous quitte, vous continuez à être prélevé, ce n'est pas suffisant pour résilier le contrat !"
+
+
+### Évaluer le sentiment d'un message ###
+# Renvoyer la liste des sentiments par phrase pour un message.
+sentiment_message <- function(message_brut) {
+  message <- gsub(" \n", ". ", message_brut)
+  #message <- as.character(message_brut)
+  # Évaluer le sentiment
+  sent <- sentiment(message, polarity_dt = hash_sentiment)
+  # Retourne le score des sentiments en tant que liste
+  liste <- sent[, 4]
+  liste
+}
+
+# Exemple
+sent <- sentiment_message(message)
+
+# Ajouter la colonne sentiment au DataFrame
+sentimenter <- function(data) {
+  data$sentiment <- apply(data, 1, function(x) sentiment_message(x[5]))
+  data
+}
+
+# Exemple
+exemple <- sentimenter(ex)
+
+debut <- Sys.time()
+test <- sentimenter(donnees)
+Sys.time() - debut
