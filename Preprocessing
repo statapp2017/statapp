@@ -1,34 +1,37 @@
 rm(list=ls())
 library("hunspell")
 library("tm")
-#install.packages("RcmdrPlugin.temis")
-library(RColorBrewer)
+library("RColorBrewer")
 library("wordcloud")
 library("stringr")
 library("igraph")
-library(graphics)
+library("graphics")
 library("koRpus")
 library("SnowballC")
-#library(RcmdrPlugin.temis)
+library("tokenizers")
 
 setwd("D:/ENSAE/2èmeannée/Statsapp")
+#Importation des données
 donnees <- read.csv2("Extraction.csv")
+#Dictionnaire de mots français pour appuer hunspell
 dico <- read.table("D:/Téléchargement/liste_francais.txt")
-#Part os Speech tagging: détermine la classe grammaticale des différents éléments de la phrase. Permet d'améliorer le correcteur orthographique
 
 correcteur_orthographique1<- function(phrase){
-  phrase<-tolower(phrase)
-  liste <- str_split(phrase," ")[[1]]
+  #Séparation de la phrase en mots 
+  liste <- tokenize_words(as.character(phrase), lowercase = TRUE)[[1]]
   chaine<- ""
   for (x in liste){
-    if (hunspell_check(x,dict=dictionary("fr"))|str_length(x)==1|x=="qu"){
+    #On regarde si l'orthographe du mots est correct
+    if (hunspell_check(x,dict=dictionary("fr"))|str_length(x)==1){
       chaine <- paste(chaine,x)
     }
     else{
+      #Si l'orthographe n'est pas juste on extrait les corrections possibles
       suggestion<-hunspell_suggest(x, dict = dictionary("fr"))[[1]]
       vrai <- TRUE
       i <- 1
       while (vrai & i<5){
+        #On vérifie que le mot est français avant de le remplacer dans la phrase
         if (suggestion[i] %in% dico[[1]]){
           chaine <- paste(chaine,suggestion[i])
           vrai <- FALSE
@@ -37,6 +40,7 @@ correcteur_orthographique1<- function(phrase){
           i <- i+1
         }
       }
+      #Si on ne trouve pas de correction française alors on laisse tel quel
       if (i==5){
         chaine <- paste(chaine,x)
       }
@@ -45,6 +49,7 @@ correcteur_orthographique1<- function(phrase){
   chaine
 }
 
+#Application de la correction orthographique au dataframe
 correction_dataframe <- function(dataframe,colonne){
   ref <- dataframe[[colonne]]
   for (i in c(1:nrow(dataframe))){
@@ -54,8 +59,10 @@ correction_dataframe <- function(dataframe,colonne){
 }
 
 lemmatizer<-function(file,adresse){
+  #Lemmatisation et part-of-speech tagging du texte
   text <- data.frame(treetag(file,treetagger = "manual",TT.tknz=FALSE,lang="fr",encoding="Latin1",TT.options=list(path=adresse,preset = "fr"))@TT.res[,c(1,2,3)])
   lemme <- ""
+  #On récupère la phrase lemmatiser
   for (i in c(1:nrow(text))){
     if (text$lemma[i]=="<unknown>"){
       lemme <- paste(lemme,text$token[i])
@@ -79,6 +86,7 @@ lemmatizer<-function(file,adresse){
   lemme <- str_replace_all(lemme," x \" \" @card@ " ,"")
   lemme <- str_replace_all(lemme,"\"","")
   lemme <- str_replace_all(lemme,"\ \"","")
+  #On récupère maintenant la catégorie grammaticale de l'ensemble des mots de la phrase
   v <- array(dim = c(1,nrow(text)-8))
   for (i in 8:nrow(text)){
     v[i-7] <- text$tag[i]
@@ -87,6 +95,7 @@ lemmatizer<-function(file,adresse){
   return (list(lemme,v))
 }
 
+#Application au dataframe
 lemmatizer_dataframe <- function(data,adresse,colonne){
   colref <-data[[colonne]]
   for (i in 1:nrow(data)){
@@ -109,17 +118,17 @@ supprime_accent<-function(table_tm){
   table_tm<-str_replace_all(table_tm, "[OÓÒÔÖÕóòôöõ]", "o")
   table_tm<-str_replace_all(table_tm, "[UÚÙÛÜúùûü]", "u")
   table_tm<-str_replace_all(table_tm, "[YÝýÿ]", "y")
-  Corpus(VectorSource(table_tm), readerControl=list(reader=readPlain, language="fr"))
+  corpus <- Corpus(VectorSource(table_tm), readerControl=list(reader=readPlain, language="fr"))
 }
 
-#On supprime nombre, ponctuation et majuscules
+#On supprime nombres et ponctuations 
 harmonise_notation<-function(corpus){
-  corpus <- tm_map(corpus, content_transformer(tolower))
   corpus <- tm_map(corpus, content_transformer(removeNumbers))
   corpus <- tm_map(corpus, content_transformer(removePunctuation))
   corpus
 }
 
+#Suppression des espaces
 enleve_espace<-function(corpus){
   corpus <- tm_map(corpus, content_transformer(stripWhitespace))
   corpus
@@ -127,11 +136,11 @@ enleve_espace<-function(corpus){
 
 #Suppression des stopwords 
 enleve_stopwords<-function(corpus){
-  myStopWords<-c(stopwords("french"))
+  myStopWords<-c(stopwords("fr"))
   corpus <- tm_map(corpus, removeWords, myStopWords)
   corpus
 }
-
+help(DocumentTermMatrix)
 #On créé la DTM
 creation_DTM<-function(corpus,sparseness){
   dtm <- DocumentTermMatrix(corpus,control=list(weighting=weightTf))
@@ -139,6 +148,7 @@ creation_DTM<-function(corpus,sparseness){
   dtm
 }
 
+#Fonction de préprocessing, colonne contient le nom de la colonne a étudié et file est l'adresse du dossier TreeTagger
 preprocess_text<-function(data,colonne,sparseness=0.99,file="C:/TreeTagger"){
   dataframe_corrige <- correction_dataframe(data,colonne)
   dataframe_corrige <- lemmatizer_dataframe(dataframe_corrige,file,colonne)
@@ -147,18 +157,29 @@ preprocess_text<-function(data,colonne,sparseness=0.99,file="C:/TreeTagger"){
   corpus <- harmonise_notation(corpus)
   corpus <- enleve_espace(corpus)
   corpus <- enleve_stopwords(corpus)
+  wordcloud(dd$word,dd$freq*1000, scale=c(3,2),min.freq = 20, max.words = 50, random.order = F,colors
+            = palette_couleur)
   dtm <- creation_DTM(corpus,sparseness)
   list(dtm,dataframe_corrige)
 }
-
+k<-donnees[1:100,]
 debut <- Sys.time()
-result<- preprocess_text(donnees,"Resume",sparseness = 0.95)
+result<- preprocess_text(k,"Resume",sparseness = 0.95)
 Sys.time()-debut
+
 dtm <- result[[1]]
 dataframe_corrige <- result[[2]]
-saveRDS(dtm, file = "dtm.rds")
-saveRDS(dataframe_corrige,file="dataframe_corrige.rds")
+#saveRDS(dtm, file = "dtm.rds")
+#saveRDS(dataframe_corrige,file="dataframe_corrige.rds")
 
+
+
+
+
+
+
+dtm<-readRDS("dtm.rds")
+#On regarde l'effet du preprocessing sur le nombre de mots 
 compar<-function(colonne,dtm){
   par(mfrow=c(2,1),bg="beige")
   words_preprocessing<-sapply(strsplit(as.character(donnees[[colonne]]), " "), length)
@@ -177,14 +198,15 @@ freq_word<-function(dtm_in){
   d1[,3]<-round(as.numeric(d1[,2])*100/nrow(as.matrix(dtm_in)),2)
   d1
 }
-
 dd<-freq_word(dtm)
-
+dd
+#Visualisation des mots les plus utilisés dans les articles 
 nuage_de_mots <- function(dtm){
   par(mfrow=c(1,1),bg="white")
   dd<-freq_word(dtm)
+  dd<-dd[ !dd$word %in% c("avoir","etre","card"),]
   palette_couleur <-brewer.pal(n = 8, name = "Dark2")
-  wordcloud(dd$word,dd$freq, scale=c(3,2),min.freq = 20, max.words = 200, random.order = F,colors
+  wordcloud(dd$word,dd$freq, scale=c(3,2),min.freq = 20, max.words = 50, random.order = F,colors
           = palette_couleur)
 }
 nuage_de_mots(dtm)
@@ -210,7 +232,7 @@ cooccurrence<-function(dtm_in){
   el <- data.frame(
     edge1 = get.edgelist(n,name=T)[,1], # Terme 1
     edge2 = get.edgelist(n,name=T)[,2], # Terme 2
-    weight = get.edge.attribute(n, "weight"), # Nb de titre où les Termes 1 et 2 sont cooccurrents
+    weight = get.edge.attribute(n, "weight"), # Nb de documents où les Termes 1 et 2 sont cooccurrents
     stringsAsFactors = FALSE
   )
   #Sélection des liens (Co-occurrences) les plus fréquents
@@ -232,7 +254,7 @@ return(n2)
 # Application de la fonction de cooccurrence
 g<-cooccurrence(dtm)
 
-centrality<-function(graph,method_cen,freq_var) {
+centrality<-function(graph,method_cen,freq_var,suppr) {
   par(mfrow=c(1,1))
   # Detection de communauté - minimum spanning tree
   mst <- minimum.spanning.tree(graph,
@@ -284,34 +306,41 @@ centrality<-function(graph,method_cen,freq_var) {
   cen <- cm.colors(101)[cen]
   
   # Grandeur du cercle proportionnelle à la fréquence d’apparition du mot
-  mst <- delete.vertices(mst, V(mst)[degree(mst)<3])
-  freq_var <- freq_var[V(mst)$name,]
+  mst <- delete.vertices(mst,V(mst)[name %in% suppr])
+  mst <- delete.vertices(mst,V(mst)[name %in% c("etre","card","avoir")])
   # Graphique
+  multiplicateur <- 20/log(max(freq_var))
   plot_cent<-
     plot(mst, layout=layout.fruchterman.reingold,
          vertex.color = cen, # color vertices by community
          vertex.label=V(mst)$name, # no vertex label (name)
-         vertex.size=freq_var*0.2,
+         vertex.size=log(freq_var)*multiplicateur,
          edge.color="grey55",
          edge.arrow.size=1)
   # Listing des mesures
   return(list(mesures=table_centralite, top=top_centralite, correlation=table_cor)) 
   } # fin de la
-
-
 #fonction
 #Application de la fonction de centralité
+cent<-centrality_freq(53,"cnt_e",dtm)
+
 #Inputs
 # Selection des mots les plus fréquents
+centrality_freq<-function(n,method_cen,dtm){
+  d <- t(as.matrix(dtm[,-1]))
+  freq <- NULL
+  for (i in 1:length( rownames(d) )) {
+    freq[i] = sum( d[i,] ) }
+  freq<-as.matrix(freq)
+  rownames(freq)<-rownames(d)
+  freq<-freq[order(freq[,1],decreasing=T),]
+  t <-n+1
+  suppr <-names(freq[t:length(freq)])
+  freq<-freq[1:n]
+  cent<-centrality(g,method_cen,freq,suppr)
+  cent
+  }
 
-d <- t(as.matrix(dtm[,-1]))
-length(rownames(d))
-freq <- NULL
-for (i in 1:length( rownames(d) )) {
-  freq[i] = sum( d[i,] ) }
-freq<-as.matrix(freq)
-rownames(freq)<-rownames(d)
-cent<-centrality(g,"cnt_e",freq)
 #Execution
 # Outputs
 
@@ -323,7 +352,7 @@ cent[[2]] # Les 10 mots les plus centraux
 cent[[3]] # Corrélation entre les mesures de centralité
 
 
-communaute<-function(graph,method_com,freq_var){
+communaute<-function(graph,method_com,freq_var,suppr){
   # Detection de communauté - minimum spanning tree
   mst <- minimum.spanning.tree(graph,
                                weights = 1 - get.edge.attribute(graph, "weight"),
@@ -348,23 +377,36 @@ communaute<-function(graph,method_com,freq_var){
   }
   groups <- data.frame( name = rownames(groups), freq = groups[,1])
   group_members <- data.frame( vid = V(mst)$id, gp = groupe)
-  # Taille des cercles
-  mst <- delete.vertices(mst, V(mst)[degree(mst)<3])
-  freq_var <- freq_var[V(mst)$name,]
+  mst <- delete.vertices(mst,V(mst)[name %in% suppr])
+  mst <- delete.vertices(mst,V(mst)[name %in% c("etre","card","avoir")])
   # Graphique
-  par(mfrow=c(1,1))
-  plot(mst, layout=layout.fruchterman.reingold,
-       vertex.color = com_m, # color vertices by community
-       vertex.label=V(mst)$id, # name
-       vertex.size=freq_var*0.2,
-       edge.color="grey55",
-       edge.arrow.size=1)
+  multiplicateur <- 20/log(max(freq_var))
+  plot_cent<-
+    plot(mst, layout=layout.fruchterman.reingold,
+         vertex.color = com_m, # color vertices by community
+         vertex.label=V(mst)$id, # name
+         vertex.size=log(freq_var)*multiplicateur,
+         edge.color="grey55",
+         edge.arrow.size=1)
   return(list(groups,group_members))
 } # fin de la fonction communauté
 
+communaute_freq<-function(n,algo,dtm){
+  d <- t(as.matrix(dtm[,-1]))
+  freq <- NULL
+  for (i in 1:length( rownames(d) )) {
+    freq[i] = sum( d[i,] ) }
+  freq<-as.matrix(freq)
+  rownames(freq)<-rownames(d)
+  freq<-freq[order(freq[,1],decreasing=T),]
+  t <-n+1
+  suppr <-names(freq[t:length(freq)])
+  freq<-freq[1:n]
+  communaute_fg<-communaute(g,algo,freq,suppr)
+  communaute_fg
+}
+
 algo<-"com_fg" # Communautés fast greedy
-#Execution
-communaute_fg<-communaute(g,algo,freq)
-# Outputs
+communaute_freq(53,algo,dtm)
 communaute_fg[[1]] # Nombre de mots par communauté
 communaute_fg[[2]] # Affectation des communautés
