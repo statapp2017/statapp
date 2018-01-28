@@ -76,9 +76,9 @@ get.best.model <- function(all.topic.models) {
 ################################################################################################
 #charger la dtm                                                                                #
 dtm<-readRDS(file = "dtm.rds")                                                                 #
-                                                                                               #
+give_best_model<-function(dtm){                                                                #
 # Nombre de thèmes testés                                                                      #
-all.ks <- seq(2, 22, 2)                                                                        #
+all.ks <- seq(2, 22, 1)                                                                        #
 # Matrice dont les documents (lignes) contiennent au moins un terme (colonne)                  #
 documents<-subset(as.matrix(dtm),(rowSums(as.matrix(dtm)) >0) ==TRUE)                          #
                                                                                                #
@@ -89,9 +89,10 @@ best.model <- get.best.model(all.topic.models)                                  
                                                                                                #
 #Output                                                                                        #
 # Modèle selectionné                                                                           #
-best.model                                                                                     #
+best.model     
+}                                                                                              #
 # Nombre de themes retenus                                                                     #
-k<-best.model@k                                                                                #
+k<-give_best_model(dtm)@k                                                                       #
 ################################################################################################
 
 
@@ -126,42 +127,43 @@ dist_topic<-function(phi, gp_topic){
 
 #carateriser le i-eme theme
 caracterise<-function(phi_t,i){
-    colonne<-phi_t[i,]
-    col.tri <- sort(colonne,decreasing = T)
-    liste<-c(col.tri[1],col.tri[2],col.tri[3],col.tri[4],col.tri[5],col.tri[6],col.tri[7])
-    n<-length(col.tri)
-    titre = paste('Theme',i)
-    barplot(liste, main = titre,ylim = c(0,col.tri[1]+0.05),axes = T)
+  colonne<-phi_t[i,]
+  col.tri <- sort(colonne,decreasing = T)
+  liste<-c(col.tri[1],col.tri[2],col.tri[3],col.tri[4],col.tri[5],col.tri[6],col.tri[7])
+  n<-length(col.tri)
+  titre = paste('Theme',i)
+  barplot(liste, main = titre,ylim = c(0,col.tri[1]+0.05),axes = T)
 }
 
 ################################################################################################
-                                                                                               #
-#liste des themes attribuables a chaque document                                               #
+#
+give_theme<-function(dtm){
+#liste des themes attribuables a chaque document
+best.model<-give_best_model(dtm)                                                               #
 document.topic.assignments <- get.topic.assignments(best.model)                                #
-                                                                                               #
+#
 # Assignement des documents au thème le plus probable                                          #
 Topic <- topics(best.model, 1)                                                                 #
-                                                                                               #
+#
 # Probabilité de chaque mot d’appartenir à un theme                                            #
 pos<-posterior(select.model)$topics                                                            #
-phi_t <- posterior(select.model)$terms %>% as.matrix                                           #
-                                                                                               #
-                                                                                               #
+phi_t <- posterior(select.model)$terms %>% as.matrix          
+# Fréquence des thèmes 
+topic.freqs <- sort(table(unlist(document.topic.assignments$topic)), decreasing=T) 
+#MDS afin d’analyser la distance entre les thèmes                                              #
+topic_dist<-dist_topic (phi_t, 5)                                                              #
+#Sur le graphique sont affiches les numeros designat chaque theme,                             #
+#les themes devant etre interprettes avec la figure obtenue avec la fonction caracterise       #
+return(list(topic.freqs,topic_dist,phi_t))                                                                                     #
+}#
+
 #caracterisations des themes                                                                   #
 par(mfrow=c(2,2))                                                                              #
 caracterise(phi_t,5)                                                                           #
 caracterise(phi_t,6)                                                                           #
 caracterise(phi_t,7)                                                                           #
 caracterise(phi_t,8)                                                                           #
-                                                                                               #
-# Fréquence des thèmes                                                                         #
-topic.freqs <- sort(table(unlist(document.topic.assignments$topic)), decreasing=T)             #
-topic.freqs                                                                                    #
-                                                                                               #
-#MDS afin d’analyser la distance entre les thèmes                                              #
-topic_dist<-dist_topic (phi_t, 5)                                                              #
-#Sur le graphique sont affiches les numeros designat chaque theme,                             #
-#les themes devant etre interprettes avec la figure obtenue avec la fonction caracterise       #
-topic_dist                                                                                     #
-                                                                                               #
+#
+                                                                        ##
+
 ################################################################################################
