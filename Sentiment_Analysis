@@ -8,12 +8,9 @@
 # Output : un Data Frame à 8 colonnes (nouvelle colonne sentiment)
 
 ### Librairies ###
-#install.packages("translate")
-#install.packages("tidytext")
 #install.packages("tm")
 
 rm(list = ls())
-library(translate)
 library(tidytext)
 library(stringr)
 library(dplyr)
