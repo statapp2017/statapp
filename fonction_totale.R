@@ -1,20 +1,39 @@
 rm(list=ls())
-library("hunspell")
-library("tm")
-library("RColorBrewer")
-library("wordcloud")
-library("stringr")
-library("igraph")
-library("graphics")
-library("koRpus")
-library("SnowballC")
-library("tokenizers")
+library(hunspell)
+library(tm)
+library(RColorBrewer)
+library(wordcloud)
+library(stringr)
+library(igraph)
+library(graphics)
+library(koRpus)
+library(tokenizers)
+library(survival)
+library(topicmodels) 
+library(Rmpfr) 
+library(ggplot2)
+library(lattice)
+library(rjmcmc)
+library(magrittr)
+library(dplyr)
+library(data.table)
+library(sentimentr)
 
 setwd("D:/ENSAE/2èmeannée/Statsapp")
 #Importation des données
 donnees <- read.csv2("Extraction.csv")
 #Dictionnaire de mots français pour appuer hunspell
 dico <- read.table("D:/Téléchargement/liste_francais.txt")
+#Document pour la sentiment analysis
+hash_valence <- read.csv("hash_valence_fr.csv", encoding = "utf8")
+hash_sentiment <- read.csv2("hash_sentiment_fr.csv")
+
+help(read.csv)
+#############################
+#                           #
+#       Préprocessing       #
+#                           #
+#############################
 
 correcteur_orthographique1<- function(phrase){
   #Séparation de la phrase en mots 
@@ -53,7 +72,8 @@ correcteur_orthographique1<- function(phrase){
 correction_dataframe <- function(dataframe,colonne){
   ref <- dataframe[[colonne]]
   for (i in c(1:nrow(dataframe))){
-    dataframe$corrige[i]<-correcteur_orthographique1(ref[i])
+    correction <- correcteur_orthographique1(ref[i])
+    dataframe$corrige[i]<-correction
   }
   dataframe
 }
@@ -84,6 +104,7 @@ lemmatizer<-function(file,adresse){
   }
   lemme <- str_replace_all(lemme,"Ãª","ê")
   lemme <- str_replace_all(lemme," x \" \" @card@ " ,"")
+  lemme <- str_replace_all(lemme,"@card@" ,"")
   lemme <- str_replace_all(lemme,"\"","")
   lemme <- str_replace_all(lemme,"\ \"","")
   #On récupère maintenant la catégorie grammaticale de l'ensemble des mots de la phrase
@@ -151,7 +172,7 @@ creation_DTM<-function(corpus,sparseness){
 #Fonction de préprocessing, colonne contient le nom de la colonne a étudié et file est l'adresse du dossier TreeTagger
 preprocess_text<-function(data,colonne,sparseness=0.99,file="C:/TreeTagger"){
   dataframe_corrige <- correction_dataframe(data,colonne)
-  dataframe_corrige <- lemmatizer_dataframe(dataframe_corrige,file,colonne)
+  dataframe_corrige <- lemmatizer_dataframe(dataframe_corrige,file,"corrige")
   table_tm<- dataframe_corrige$corrige
   corpus <- supprime_accent(table_tm)
   corpus <- harmonise_notation(corpus)
@@ -189,9 +210,10 @@ nuage_de_mots <- function(dtm){
   dd<-freq_word(dtm)
   dd<-dd[ !dd$word %in% c("avoir","etre","card"),]
   palette_couleur <- brewer.pal(n = 8, name = "Dark2")
-  wordcloud(dd$word,dd$freq, scale=c(3,2),min.freq = 20, max.words = 50, random.order = F,colors= palette_couleur)
+  wordcloud(dd$word,dd$freq, scale=c(3,2),min.freq = 20, max.words = 150, random.order = F,colors= palette_couleur)
 }
 
+#Création de la matrice de co-occurence des mots
 cooccurrence<-function(dtm_in){
   # Préparation des données
   d <- t(as.matrix(dtm_in))
@@ -232,7 +254,7 @@ n2 <- set.edge.attribute(n2,"weight",
 V(n2)$id <-as.character( colnames(d))
 return(n2)
 } # fin de la fonction
-# Application de la fonction de cooccurrence
+
 
 ######################Algorithme de communauté###########################
 communaute<-function(graph,method_com,freq_var,suppr){
@@ -298,18 +320,11 @@ communaute_freq<-function(g,n,algo,dtm){
   communaute_fg
 }
 
-
-library(survival)
-library(topicmodels) 
-library(Rmpfr) 
-library(wordcloud)
-library(RColorBrewer) 
-library(ggplot2)
-library(lattice)
-library(rjmcmc)
-library(magrittr)
-
-
+#############################
+#                           #
+#    Allocation de thème    #
+#                           #
+#############################
 
 ## A) TROUVER LE NOMBRE OPTIMAL DE THEMES: k
 
@@ -366,7 +381,7 @@ get.best.model <- function(all.topic.models) {
 ################################################################################################
 give_best_model<-function(dtm){                                                                #
   # Nombre de thèmes testés                                                                      #
-  all.ks <- seq(2, 22, 1)                                                                        #
+  all.ks <- seq(2, 30, 1)                                                                        #
   # Matrice dont les documents (lignes) contiennent au moins un terme (colonne)                  #
   documents<-subset(as.matrix(dtm),(rowSums(as.matrix(dtm)) >0) ==TRUE)                          #
   #
@@ -426,7 +441,6 @@ caracterise<-function(phi_t,i){
 give_theme<-function(dtm){
   #liste des themes attribuables a chaque document
   best.model<-give_best_model(dtm)  
-  print(best.model@k) #
   document.topic.assignments <- get.topic.assignments(best.model)   
   # Nombre de themes retenus                                                                     #
    
@@ -444,49 +458,34 @@ give_theme<-function(dtm){
   #Sur le graphique sont affiches les numeros designat chaque theme,                             #
   #les themes devant etre interprettes avec la figure obtenue avec la fonction caracterise       #
   return(list(topic.freqs,topic_dist,phi_t,document.topic.assignments))                                                                                     #
-}#
-
-#caracterisations des themes                                                                   #
-par(mfrow=c(2,2))                                                                              #
-caracterise(phi_t,5)                                                                           #
-caracterise(phi_t,6)                                                                           #
-caracterise(phi_t,7)                                                                           #
-caracterise(phi_t,8)                                                                           #
-#
-##
+}
 
 ################################################################################################
 
-library(translate)
-library(tidytext)
-library(stringr)
-library(dplyr)
-library(data.table)
-library(sentimentr)
+
+############################
+#                          #
+#    Sentiment Analysis    #
+#                          #
+############################
+
+
 sentiment_message <- function(message_brut) {
-  print(message_brut)
   message <- gsub(" \n", ". ", message_brut)
   #message <- as.character(message_brut)
   # Ãvaluer le sentiment
-  sent <- sentiment(message, polarity_dt = hash_sentiment)
+  sent <- sentiment(message, polarity_dt = hash_sentiment,valence_shifters_dt = hash_valence)
   # Retourne le score des sentiments en tant que liste
   liste <- sent[, 4]
   liste
 }
 
-# Exemple
-
 # Ajouter la colonne sentiment au DataFrame
 sentimenter <- function(data,colonne) {
   t<-which(colnames(data) == colonne)
-  print(t)
   data$sentiment <- apply(data, 1, function(x) sentiment_message(x[t]))
   data
 }
-
-donnees <- read.csv2("Extraction.csv")
-hash_valence <- read.csv("hash_valence_fr.csv", encoding = "utf8")
-hash_sentiment <- read.csv("hash_sentiment_fr.csv", encoding = "utf8")
 
 fonction_totale<-function(donnees,n,colonne,sparseness){
   result<- preprocess_text(donnees,colonne,sparseness)
@@ -501,21 +500,12 @@ fonction_totale<-function(donnees,n,colonne,sparseness){
   topic_dist <- theme[[2]]
   phi_t<-theme[[3]]
   topics.assignement <- theme [[4]]
-  par(mfrow=c(2,2)) 
-  caracterise(phi_t,5)                                                                           
-  caracterise(phi_t,6)                                                                           
-  caracterise(phi_t,7)                                                                           
-  caracterise(phi_t,8)
-  # DataFrame pour l'Ã©tude des sentiments
+  # DataFrame pour l'étude des sentiments
   setDT(hash_sentiment) # Transformer en data.tables
   setkey(hash_sentiment)
   # DataFrame des valence shifters pour l'Ã©tude des sentiments
   setDT(hash_valence)
   setkey(hash_valence)
   dataframe_corrige<-sentimenter(dataframe_corrige,"corrige")
-  return(list(dtm,dataframe_corrige,topics.freqs,topic_dist,topics.assignement))
+  return(list(dtm,dataframe_corrige,topics.freqs,phi_t,topic_dist,topics.assignement))
 }
-k<-donnees[1:10,]
-debut <- Sys.time()
-result<- fonction_totale(k,12,"Resume",sparseness = 0.95)
-Sys.time()-debut
