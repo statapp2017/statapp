@@ -57,53 +57,27 @@ describe_corpus<-function(data){
 #' and find also the grammatical class of all words. This algorithm is based
 #' on TreeTagger
 #' 
-#' @param file The location of the file containing the sentence to work on 
+#' @param x The location of the file containing the sentence to work on 
 #' @param adress The location of the folder containing the TreeTagger used.
-#' @return A list containing both the sentence with all words lemmatized and 
-#' a list with all the grammatical class of the words
+#' @return The sentence with all words lemmatized 
 #' @examples
 #' dataframe_correction("Myfile.txt","C:/TreeTagger")
-
-lemmatizer<-function(file,adress){
-  #Lemmatisation and part-of-speech tagging of the text
-  suppressMessages(
-    text <- data.frame(treetag(file,treetagger = "manual",TT.tknz=FALSE,lang="fr",encoding="Latin1",TT.options=list(path=adress,preset = "fr"))@TT.res[,c(1,2,3)])
-  )
-  lemme <- ""
-  #We get the lemmatize sentence
-  for (i in c(1:nrow(text))){
-    if (text$lemma[i]=="<unknown>"){
-      lemme <- paste(lemme,text$token[i])
-    }
-    else{
-      list_letters <- str_split(text$lemma[i],"")[[1]]
-      if ("|" %in% list_letters){
-        for (j in c(1:length(list_letters))){
-          if (list_letters[j]=="|"){
-            reference <- j+1
-          }
-        }
-        lemme <- paste(lemme,str_sub(text$lemma[i],reference))
-      }
-      else{
-        lemme <- paste(lemme,text$lemma[i])
-      }
-    }
-  }
-  lemme <- str_replace_all(lemme,"ê","?")%>% str_replace_all(" x \" \" @card@ " ,"")%>%
-    str_replace_all("@card@" ,"")%>%str_replace_all("\"","")%>%str_replace_all("\ \"","")%>%
-    str_replace_all("Ã©","e")%>%str_replace_all("Ã¨","e")%>%str_replace_all("Ã","a")%>%
-    str_replace_all( "Ãª","e")%>%str_replace_all("Ã§","c")%>%str_replace_all("Å","oe")%>%
-    str_replace_all("Ã¹","u")%>%str_replace_all("Ã«","e")%>%str_replace_all("[EÉÈÊËéèêë]", "e")%>%
-    str_replace_all("a©","e")%>%str_replace_all("a¨","e")%>%str_replace_all( "aª","e")%>%
-    str_replace_all("Ã","e")
-  #We get the grammatical class of all words.
-  v <- array(dim = c(1,nrow(text)-8))
-  for (i in 8:nrow(text)){
-    v[i-7] <- text$tag[i]
-  }
-  names(v) <- text$token[c(8:nrow(text))]
-  return (list(lemme,v))
+lemmatizeCorpus <- function(x,adress) {
+    suppressMessages(words.cc <- treetag(x, treetagger="manual", format="obj",
+                        TT.tknz=FALSE, lang="fr",encoding="Latin1",
+                        TT.options=list(path=adress, preset="fr")))
+    
+    words.lm <- ifelse(words.cc@TT.res$token != words.cc@TT.res$lemma, 
+                       ifelse(words.cc@TT.res$lemma != "<unknown>", words.cc@TT.res$lemma, words.cc@TT.res$token),
+                       words.cc@TT.res$token)
+    lemme <- toString(paste(words.lm, collapse = " "))
+    lemme <- str_replace_all(lemme,"ê","?")%>%str_replace_all("@card@" ,"")%>%
+      str_replace_all("\"","")%>%str_replace_all("\ \"","")%>%str_replace_all("suivre|Ãªtre","etre")%>%
+      str_replace_all("Ã©","e")%>%str_replace_all("Ã¨","e")%>%str_replace_all("Ã","a")%>%
+      str_replace_all( "Ãª","e")%>%str_replace_all("Ã§","c")%>%str_replace_all("Å","oe")%>%
+      str_replace_all("Ã¹","u")%>%str_replace_all("Ã«","e")%>%str_replace_all("[EÉÈÊËéèêë]", "e")%>%
+      str_replace_all("a©","e")%>%str_replace_all("a¨","e")%>%str_replace_all( "aª","e")%>%
+      str_replace_all("Ã","e")
 }
 
 #' Correct the spelling of a given sentence.
@@ -114,8 +88,7 @@ lemmatizer<-function(file,adress){
 #' spell_checker("Il pleut aujourd'hui.")
 #' spell_checker("Je sui contre ce projet.")
 
-
-spell_checker<- function(sentence,adress){
+spell_checker<- function(sentence){
   #Tokenization of the sentence 
   list_words <- tokenize_words(as.character(gsub(" \n", ". ",sentence)), lowercase = TRUE)[[1]]
   string_correct<- ""
@@ -145,11 +118,7 @@ spell_checker<- function(sentence,adress){
       }
     }  
   }
-  file.create(paste(toString(1),".txt",sep=""))
-  write.table(tolower(string_correct),file=paste(toString(1),".txt",sep=""),fileEncoding = "Latin1")
-  result<- lemmatizer(paste(toString(1),".txt",sep=""),adress)
-  file.remove(paste(toString(1),".txt",sep=""))
-  c(string_correct,result)
+  string_correct
 }
 
 #' Transform all the sentences contained in a given column of a dataframe. 
@@ -166,13 +135,9 @@ spell_checker<- function(sentence,adress){
 #' dataframe_correction(my_data,"C:/TreeTagger","Text")
 
 lemmatizer_dataframe <- function(data,adress,column){
-  colref <-data[[column]]
-  for (i in 1:nrow(data)){
-    result<-spell_checker(colref[i],adress)
-    data$corrige[i]<-result[1]
-    data$lemme[i]<-result[2]
-    data$tag[i]<-result[3:length(result)]
-  }
+  data[,column]<-sapply(data[,column],as.character)
+  data$corrige<-sapply(data[,column],spell_checker)
+  data$lemme<-sapply(X = data$corrige, FUN = function(x){ lemmatizeCorpus(x,adress)},USE.NAMES = F)
   data
 }
 
@@ -225,12 +190,8 @@ preprocess_text<-function(data,column,sparseness=0.99,file="C:/TreeTagger"){
   dtm <- creation_DTM(corpus,sparseness)
   list(dtm,dataframe_corrige)
 }
-dtm<-readRDS("dtm_epargne.RDS")
-#k<-data[1:100,]
-#debut <- Sys.time()
-#result <- preprocess_text(k,"Resume")
-#Sys.time()-debut
-#dtm <- result[[1]]
+
+#dtm<-readRDS("dtm_epargne.RDS")
 
 #' Display the histogram reprensenting the distribution of words before and after the text preprocessing
 #' @param data The dataframe containing the original sentences
@@ -395,40 +356,53 @@ build.topic.models<-function(dtm, all.ks){
   return(models)
 }
 
-#Calcul de la moyenne harmonique pour tous les mod?les
-harmonicMean <- function(logLikelihoods) {
-  precision <- 2000L
-  llMed <- median(logLikelihoods)
-  as.double(llMed - log(mean(exp(-mpfr(logLikelihoods, prec = precision) + llMed))))
-}
-
-# Comparaison des mod?les
-evaluate.topic.models <- function(all.topic.models) {
-  all.ks <- as.integer(names(all.topic.models)) # Nombre de th?mes 
-  model.harmonic.means <- sapply(unlist(lapply(all.topic.models,logLik)),harmonicMean) #Moyenne Harm.
-  return(list(k=all.ks[which.max(model.harmonic.means)], scores=model.harmonic.means, all.ks=all.ks)) } #retourner tous les k maximisant la vraisemblance
-
-# Representation graphique des r?sultats
-plot.ks <- function(res) { 
-  all.ks <- res$all.ks
-  scores <- res$scores
-  best.k <- res$k
-  par(list(oma=c(0, 0, 0, 0), mai=c(0.50, 0.30, 0.10, 0.05), cex=0.6))
-  plot(all.ks, scores, type = "l", xlab = "Number of topics", axes=F) 
-  axis(1, at=c(2:30), col.axis="black", tick=T, las=1)
-  axis(2, at=range(scores), labels=F, col.axis="black", las=1)
-  if(is.null(best.k)==F) { 
-    abline(v=best.k, col="red", lty=3)
-    y.text.pos <- range(scores)[1] + (0.8*(range(scores)[2]-range(scores)[1])) 
-    text(x=best.k, y=y.text.pos, labels=as.character(best.k))
+coherence_tfidf<-function(model,dtm,n){ # n = number of topics in the model considered
+  dtm2 <- as.matrix(weightSMART(dtm,spec="atn"))
+  dtm<-as.matrix(dtm)
+  phi_t <- posterior(model)$terms %>% as.matrix
+  liste_score <- c()
+  for (topics in 1:n){ #n -> number of topics
+    col.tri <- sort(phi_t[topics,],decreasing = T)
+    #We calculate the metric over the 10 best words of the topics
+    w<-col.tri[1:10]
+    u<-names(w)
+    somme <-0
+    for (i in 1:(length(u)-1)){
+      for (j in (i+1):length(u)){
+        sub_dtm<-dtm[dtm[,u[i]]>0 & dtm[,u[j]]>0,]
+        high_sum<-sum(dtm2[rownames(sub_dtm),u[i]]*dtm2[rownames(sub_dtm),u[j]])+1
+        low_sum<- sum(dtm[,u[i]])
+        somme<-somme+log(high_sum/low_sum)
+      }
+    }
+    liste_score[topics]<-somme
   }
+  liste_score
 }
-# Meilleur mod?le - Optimum nombre de th?me (aussi reperable sur le graphique obtenu precedement)
-get.best.model <- function(all.topic.models) {
-  evaluation.results <- evaluate.topic.models(all.topic.models)
-  plot.ks(evaluation.results)
-  all.topic.models[[as.character(evaluation.results$k)]]}
 
+get_best_model<-function(all.topics.models,dtm){
+  all_coherences<-list()
+  indice<-1
+  for(model in all.topics.models){
+    all_coherences[[indice]]<-coherence_tfidf(model,dtm,indice+1)
+    indice<-indice + 1
+  }
+  #calculer la moy des coherences pour le thÃ¨me i
+  moyenne<-function(all_coherences,i){
+    mean(all_coherences[[i]])
+  }
+  #liste des cohÃ©rences moyennes pour tous les nombres de themes testÃ©s
+  average_coherences<-c()
+  Nombre_de_k<-length(all_coherences)
+  for(i in 1:Nombre_de_k){
+    average_coherences[i]<-moyenne(all_coherences,i)
+  }
+  average_coherences
+  plot(2:10,average_coherences)
+  #BEST MODEL:
+  best_model<-all.topics.models[[as.character(which(average_coherences ==max(average_coherences)))]]
+  best_model
+}
 ################################################################################################
 give_best_model<-function(dtm){                                                                #
   # Nombre de th?mes test?s                                                                      #
@@ -438,13 +412,13 @@ give_best_model<-function(dtm){                                                 
   #
   # Nombre optimal de th?me via LDA avec Gibbs                                                   #
   all.topic.models <- build.topic.models(documents, all.ks)                                      #
-  best.model <- get.best.model(all.topic.models)                                                 #
+  best.model <- get_best_model(all.topic.models,dtm)                                                 #
   #
   #Output                                                                                        #
   # Mod?le selectionn?                                                                           #
   best.model     
 }                                                                                              #
-#
+give_best_model(dtm)
 ################################################################################################
 
 ## B) ANALYSE THEMATIQUE
@@ -461,7 +435,7 @@ dist_topic<-function(phi){
     geom_bar()
   dist.mat <- dist(phi)
   par(mfrow=c(1,1))
-  fit <- cmdscale(dist.mat, eig = TRUE, k = 5)
+  fit <- cmdscale(dist.mat, eig = TRUE, k = (nrow(phi)-1))
   points <- data.frame(x = fit$points[, 1], y = fit$points[, 2],z=fit$points[,3])
   inertie.expl <- rep(0,times=(nrow(phi)-1))
   for (k in 1:(nrow(phi)-1)){
@@ -483,7 +457,6 @@ dist_topic<-function(phi){
     guides(color=guide_legend("Cluster"),fill=guide_legend("Cluster")) + 
     geom_text(data = points, aes(x = x + 0.02, y = y),label = rownames(phi))
 }
-dist_topic(phi_t)
 
 try_tsne<-function(phi){
   train<-as.data.frame(t(phi))
@@ -543,10 +516,6 @@ caracterise<-function(phi_t,topics.freqs){
   print(p1)
 }
 
-caracterise(phi_t,topic_freq)
-thm<-give_theme(dtm)
-phi_t<-thm[[3]]
-topic_freq<-thm[[1]]
 ################################################################################################
 #
 give_theme<-function(dtm){
@@ -565,7 +534,7 @@ give_theme<-function(dtm){
   # Fr?quence des th?mes 
   topic.freqs <- sort(table(unlist(document.topic.assignments$topic)), decreasing=T) 
   #MDS afin d'analyser la distance entre les th?mes                                              #
-  topic_dist<-dist_topic (phi_t, 5)                                                              #
+  topic_dist<-dist_topic (phi_t)                                                              #
   #Sur le graphique sont affiches les numeros designat chaque theme,                             #
   #les themes devant etre interprettes avec la figure obtenue avec la fonction caracterise       #
   return(list(topic.freqs,topic_dist,phi_t,document.topic.assignments))                                                                                     #
@@ -573,7 +542,7 @@ give_theme<-function(dtm){
 
 ################################################################################################
 
-
+give_theme(dtm)
 
 ############################
 #                          #
@@ -605,27 +574,28 @@ fonction_totale<-function(donnees,n,colonne,sparseness){
   dataframe_corrige <-result[[2]]
   nuage_de_mots(dtm)
   g<-cooccurrence(dtm)
-  algo<-"com_fg" # Communaut?s fast greedy
-  communaute_fg <- communaute_freq(g,n,algo,dtm)
+  communaute_fg <- communaute_freq(n,dtm)
   theme <- give_theme(dtm)
   topics.freqs<-theme[[1]]
   topic_dist <- theme[[2]]
   phi_t<-theme[[3]]
   topics.assignement <- theme [[4]]
-  # DataFrame pour l'?tude des sentiments
-  setDT(hash_sentiment) # Transformer en data.tables
-  setkey(hash_sentiment)
-  # DataFrame des valence shifters pour l'étude des sentiments
-  setDT(hash_valence)
-  setkey(hash_valence)
-  dataframe_corrige<-sentimenter(dataframe_corrige,"corrige")
+  caracterise(phi_t,topics.freqs)
+  dist_topic(phi_t)
+  try_tsne(phi_t)
   return(list(dtm,dataframe_corrige,topics.freqs,phi_t,topic_dist,topics.assignement))
 }
 
 so_ge<-read.csv2("verbatims_SRC_230118_ENSAE.csv")
 so_ge_prevoyance<-so_ge[so_ge$REPRISE_ACTIVITE=="Epargne",]
+so_ge_prevoyance<-so_ge_prevoyance[1:100,]
 hash_sentiment<-hash_sentiment[!hash_sentiment$x %in% hash_valence$x,]
 hash_sentiment<-hash_sentiment[!duplicated(hash_sentiment),]
-debut <- Sys.time()
+
+Rprof("D:/ENSAE/2emeannee/Statsapp/Profile.txt") # L'adresse où on veut enregistrer le résultat
+result<- fonction_totale(so_ge_prevoyance,80,"raisons_recommandation",sparseness = 0.995)
+Rprof(NULL) # Arrêter le Profiler
+summaryRprof("D:/ENSAE/2emeannee/Statsapp/Profile.txt") 
+debut<-Sys.time()
 result<- fonction_totale(so_ge_prevoyance,80,"raisons_recommandation",sparseness = 0.995)
 Sys.time()-debut
