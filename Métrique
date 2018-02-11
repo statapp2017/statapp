@@ -1,0 +1,82 @@
+rm(list = ls())
+library(stringr)
+library(data.table)
+
+setwd("/Users/okabeshu/Documents/ENSAE/StatApp")
+epargne_pred <- read.csv("prediction.csv", encoding = "utf8")
+
+# Confusion matrix
+cm = as.matrix(table(Actual = epargne_pred$actual_cat, Predicted = epargne_pred$pred_cat))
+
+n = sum(cm) # Number of instances
+nc = nrow(cm) # Number of classes
+diag = diag(cm) # Number of correctly classified instances per class 
+rowsums = apply(cm, 1, sum) # Number of instances per class
+colsums = apply(cm, 2, sum) # Number of predictions per class
+p = rowsums / n # Distribution of instances over the actual classes
+q = colsums / n # Distribution of instances over the predicted classes
+
+# Accuracy
+accuracy = sum(diag) / n 
+
+# Precision, recall, f-1
+precision = diag / colsums 
+recall = diag / rowsums 
+f1 = 2 * precision * recall / (precision + recall) 
+
+data.frame(precision, recall, f1) 
+
+# Macro averaged metrics
+macroPrecision = mean(precision)
+macroRecall = mean(recall)
+macroF1 = mean(f1)
+
+data.frame(macroPrecision, macroRecall, macroF1)
+
+# One vs All Confusion Matrix
+oneVsAll = lapply(1 : nc,
+                  function(i){
+                    v = c(cm[i, i],
+                          rowsums[i] - cm[i, i],
+                          colsums[i] - cm[i, i],
+                          n - rowsums[i] - colsums[i] + cm[i, i]);
+                    return(matrix(v, nrow = 2, byrow = T))})
+
+s = matrix(0, nrow = 2, ncol = 2)
+for(i in 1 : nc){s = s + oneVsAll[[i]]}
+
+# Average Accuracy
+avgAccuracy = sum(diag(s)) / sum(s)
+
+# Micro-averaged Metrics
+micro_prf = (diag(s) / apply(s, 1, sum))[1]
+
+# Majority-class Metrics
+mcIndex = which(rowsums == max(rowsums))[1] # majority-class index
+mcAccuracy = as.numeric(p[mcIndex]) 
+mcRecall = 0*p;  mcRecall[mcIndex] = 1
+mcPrecision = 0*p; mcPrecision[mcIndex] = p[mcIndex]
+mcF1 = 0*p; mcF1[mcIndex] = 2 * mcPrecision[mcIndex] / (mcPrecision[mcIndex] + 1)
+
+data.frame(mcRecall, mcPrecision, mcF1) 
+
+# Random-guess Metrics
+(n / nc) * matrix(rep(p, nc), nc, nc, byrow = F) # Expected confusion matrix (random-guess)
+
+rgAccuracy = 1 / nc
+rgPrecision = p
+rgRecall = 0 * p + 1 / nc
+rgF1 = 2 * p / (nc * p + 1)
+
+n * p %*% t(p) # Expected confusion matric (random-weighted-guess)
+
+rwgAccurcy = sum(p ^ 2)
+rwgPrecision = p
+rwgRecall = p
+rwgF1 = p
+
+data.frame(rwgPrecision, rwgRecall, rwgF1)
+
+# Kappa Statistic
+expAccuracy = sum(p * q)
+kappa = (accuracy - expAccuracy) / (1 - expAccuracy)
