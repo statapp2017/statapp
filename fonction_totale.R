@@ -401,24 +401,24 @@ get_best_model<-function(all.topics.models,dtm){
   plot(2:10,average_coherences)
   #BEST MODEL:
   best_model<-all.topics.models[[as.character(which(average_coherences ==max(average_coherences)))]]
-  best_model
+  best_model[[1]]
 }
 ################################################################################################
 give_best_model<-function(dtm){                                                                #
-  # Nombre de th?mes test?s                                                                      #
-  all.ks <- seq(2, 10, 1)                                                                        #
-  # Matrice dont les documents (lignes) contiennent au moins un terme (colonne)                  #
-  documents<-subset(as.matrix(dtm),(rowSums(as.matrix(dtm)) >0) ==TRUE)                          #
-  #
-  # Nombre optimal de th?me via LDA avec Gibbs                                                   #
-  all.topic.models <- build.topic.models(documents, all.ks)                                      #
-  best.model <- get_best_model(all.topic.models,dtm)                                                 #
-  #
-  #Output                                                                                        #
-  # Mod?le selectionn?                                                                           #
-  best.model     
+  # Nombre de th?mes test?s                                                                    #
+  all.ks <- seq(2, 10, 1)                                                                      #
+  # Matrice dont les documents (lignes) contiennent au moins un terme (colonne)                #
+  documents<-subset(as.matrix(dtm),(rowSums(as.matrix(dtm)) >0) ==TRUE)                        #
+                                                                                               #
+  # Nombre optimal de th?me via LDA avec Gibbs                                                 #
+  all.topic.models <- build.topic.models(documents, all.ks)                                    #
+  best.model <- get_best_model(all.topic.models,dtm)                                           #
+                                                                                               #
+  #Output                                                                                      #
+  # Mod?le selectionn?                                                                         #
+  best.model                                                                                   #
 }                                                                                              #
-give_best_model(dtm)
+give_best_model(dtm)                                                                           #
 ################################################################################################
 
 ## B) ANALYSE THEMATIQUE
