@@ -401,7 +401,7 @@ get_best_model<-function(all.topics.models,dtm){
   plot(2:10,average_coherences)
   #BEST MODEL:
   best_model<-all.topics.models[[as.character(which(average_coherences ==max(average_coherences)))]]
-  best_model[[1]]
+  best_model
 }
 ################################################################################################
 give_best_model<-function(dtm){                                                                #
