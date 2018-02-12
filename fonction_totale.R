@@ -7,6 +7,7 @@ library(stringr)
 library(igraph)
 library(graphics)
 library(tsne)
+library(Rtsne)
 library(koRpus)
 library(tokenizers)
 library(plotly)
@@ -63,6 +64,7 @@ describe_corpus<-function(data){
 #' @examples
 #' dataframe_correction("Myfile.txt","C:/TreeTagger")
 lemmatizeCorpus <- function(x,adress) {
+  if (x!=""){
     suppressMessages(words.cc <- treetag(x, treetagger="manual", format="obj",
                         TT.tknz=FALSE, lang="fr",encoding="Latin1",
                         TT.options=list(path=adress, preset="fr")))
@@ -77,7 +79,11 @@ lemmatizeCorpus <- function(x,adress) {
       str_replace_all( "Ãª","e")%>%str_replace_all("Ã§","c")%>%str_replace_all("Å","oe")%>%
       str_replace_all("Ã¹","u")%>%str_replace_all("Ã«","e")%>%str_replace_all("[EÉÈÊËéèêë]", "e")%>%
       str_replace_all("a©","e")%>%str_replace_all("a¨","e")%>%str_replace_all( "aª","e")%>%
-      str_replace_all("Ã","e")
+      str_replace_all("Ã","e")%>%str_replace_all("etre","")%>%str_replace_all("avoir","")
+  }
+  else{ 
+    x
+    }
 }
 
 #' Correct the spelling of a given sentence.
@@ -191,7 +197,7 @@ preprocess_text<-function(data,column,sparseness=0.99,file="C:/TreeTagger"){
   list(dtm,dataframe_corrige)
 }
 
-#dtm<-readRDS("dtm_epargne.RDS")
+dtm<-readRDS("dtm_epargne.RDS")
 
 #' Display the histogram reprensenting the distribution of words before and after the text preprocessing
 #' @param data The dataframe containing the original sentences
@@ -211,7 +217,7 @@ compar<-function(data,column,dtm){
   print(paste(paste("Il y a",as.character(nombre2)),"mots après la lemmatisation"))
   barplot(apply(dtm, 1, sum), xlab="Nombre de termes dans la DTM",col='blue')
 }
-compar(data,"Resume",dtm)
+
 #' Give the frequency of each words used in a document-term matrix 
 #' @param dtm_in The document-term matrix obtained after the preprocessing 
 #' @return A dataframe sorted by frequency given the frequency for each words in \code{dtm_in}
@@ -333,7 +339,6 @@ communaute_freq<-function(n,dtm){
   communaute_fg
 }
 
-t<-communaute_freq(82,dtm)
 #############################
 #                           #
 #    Allocation de thème    #
@@ -400,25 +405,24 @@ get_best_model<-function(all.topics.models,dtm){
   average_coherences
   plot(2:10,average_coherences)
   #BEST MODEL:
-  best_model<-all.topics.models[[as.character(which(average_coherences ==max(average_coherences)))]]
+  best_model<-all.topics.models[[as.character(which(average_coherences ==max(average_coherences))+1)]]
   best_model
 }
 ################################################################################################
 give_best_model<-function(dtm){                                                                #
-  # Nombre de th?mes test?s                                                                    #
-  all.ks <- seq(2, 10, 1)                                                                      #
-  # Matrice dont les documents (lignes) contiennent au moins un terme (colonne)                #
-  documents<-subset(as.matrix(dtm),(rowSums(as.matrix(dtm)) >0) ==TRUE)                        #
-                                                                                               #
-  # Nombre optimal de th?me via LDA avec Gibbs                                                 #
-  all.topic.models <- build.topic.models(documents, all.ks)                                    #
-  best.model <- get_best_model(all.topic.models,dtm)                                           #
-                                                                                               #
-  #Output                                                                                      #
-  # Mod?le selectionn?                                                                         #
-  best.model[[1]]                                                                              #
+  # Nombre de th?mes test?s                                                                      #
+  all.ks <- seq(2, 10, 1)                                                                        #
+  # Matrice dont les documents (lignes) contiennent au moins un terme (colonne)                  #
+  documents<-subset(as.matrix(dtm),(rowSums(as.matrix(dtm)) >0) ==TRUE)                          #
+  #
+  # Nombre optimal de th?me via LDA avec Gibbs                                                   #
+  all.topic.models <- build.topic.models(documents, all.ks)
+  best.model <- get_best_model(all.topic.models,dtm) 
+  #
+  #Output                                                                                        #
+  # Mod?le selectionn?                                                                           #
+  best.model     
 }                                                                                              #
-give_best_model(dtm)                                                                           #
 ################################################################################################
 
 ## B) ANALYSE THEMATIQUE
@@ -436,7 +440,7 @@ dist_topic<-function(phi){
   dist.mat <- dist(phi)
   par(mfrow=c(1,1))
   fit <- cmdscale(dist.mat, eig = TRUE, k = (nrow(phi)-1))
-  points <- data.frame(x = fit$points[, 1], y = fit$points[, 2],z=fit$points[,3])
+  points <- data.frame(x = fit$points[, 1], y = fit$points[, 2])
   inertie.expl <- rep(0,times=(nrow(phi)-1))
   for (k in 1:(nrow(phi)-1)){
     clus <- kmeans(points,centers=k,nstart=5)
@@ -477,7 +481,6 @@ try_tsne<-function(phi){
   plot(tsne$Y, t='p',pch=21, main="tsne",col=colors[Labels],bg=colors[Labels])
   legend("bottomleft",legend=legends,col=colors[unique(Labels)],pt.bg=colors[unique(Labels)],pch = rep(21,length(Labels)))
   }
-try_tsne(phi_t)
 
 #carateriser le i-eme theme
 caracterise<-function(phi_t,topics.freqs){
@@ -520,17 +523,16 @@ caracterise<-function(phi_t,topics.freqs){
 #
 give_theme<-function(dtm){
   #liste des themes attribuables a chaque document
-  best.model<-give_best_model(dtm)  
+  best.model<-give_best_model(dtm)
   document.topic.assignments <- get.topic.assignments(best.model)   
   # Nombre de themes retenus                                                                     #
-  
   #
   # Assignement des documents au th?me le plus probable                                          #
-  Topic <- topics(best.model, 1)                                                                 #
+  Topic <- topics(best.model, 1)     
   #
   # Probabilit? de chaque mot d'appartenir ? un theme                                            #
-  pos<-posterior(best.model)$topics                                                            #
-  phi_t <- posterior(best.model)$terms %>% as.matrix          
+  pos<-posterior(best.model)$topics   
+  phi_t <- posterior(best.model)$terms %>% as.matrix  
   # Fr?quence des th?mes 
   topic.freqs <- sort(table(unlist(document.topic.assignments$topic)), decreasing=T) 
   #MDS afin d'analyser la distance entre les th?mes                                              #
@@ -541,9 +543,6 @@ give_theme<-function(dtm){
 }
 
 ################################################################################################
-
-give_theme(dtm)
-
 ############################
 #                          #
 #    Sentiment Analysis    #
@@ -569,12 +568,14 @@ sentimenter <- function(data,colonne) {
 }
 
 fonction_totale<-function(donnees,n,colonne,sparseness){
+  describe_corpus(donnees)
   result<- preprocess_text(donnees,colonne,sparseness)
   dtm<-result[[1]]
   dataframe_corrige <-result[[2]]
   nuage_de_mots(dtm)
   g<-cooccurrence(dtm)
   communaute_fg <- communaute_freq(n,dtm)
+  View(dataframe_corrige)
   theme <- give_theme(dtm)
   topics.freqs<-theme[[1]]
   topic_dist <- theme[[2]]
@@ -588,14 +589,12 @@ fonction_totale<-function(donnees,n,colonne,sparseness){
 
 so_ge<-read.csv2("verbatims_SRC_230118_ENSAE.csv")
 so_ge_prevoyance<-so_ge[so_ge$REPRISE_ACTIVITE=="Epargne",]
-so_ge_prevoyance<-so_ge_prevoyance[1:100,]
 hash_sentiment<-hash_sentiment[!hash_sentiment$x %in% hash_valence$x,]
 hash_sentiment<-hash_sentiment[!duplicated(hash_sentiment),]
 
+debut<-Sys.time()
 Rprof("D:/ENSAE/2emeannee/Statsapp/Profile.txt") # L'adresse où on veut enregistrer le résultat
 result<- fonction_totale(so_ge_prevoyance,80,"raisons_recommandation",sparseness = 0.995)
 Rprof(NULL) # Arrêter le Profiler
 summaryRprof("D:/ENSAE/2emeannee/Statsapp/Profile.txt") 
-debut<-Sys.time()
-result<- fonction_totale(so_ge_prevoyance,80,"raisons_recommandation",sparseness = 0.995)
 Sys.time()-debut
