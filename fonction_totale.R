@@ -416,7 +416,7 @@ give_best_model<-function(dtm){                                                 
                                                                                                #
   #Output                                                                                      #
   # Mod?le selectionn?                                                                         #
-  best.model                                                                                   #
+  best.model[[1]]                                                                              #
 }                                                                                              #
 give_best_model(dtm)                                                                           #
 ################################################################################################
