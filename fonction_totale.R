@@ -49,10 +49,18 @@ hash_sentiment <- read.csv2("hash_sentiment_fr.csv")
 
 describe_corpus<-function(data){
   par(bg="beige",mfrow=c(1,1))
-  hist(data$recommandation_SGK,col="cyan",main="Notes données par les clients",ylab="Notes",xlab="Effectif")
+  #hist(data$recommandation_SGK,col="cyan",main="Notes données par les clients",ylab="Notes",xlab="Effectif")
   chaine<-paste(paste("Il y a",as.character(nrow(data))),"documents")
-  chaine
-}
+  print(chaine)
+  q1 <- qplot(factor(recommandation_SGK), data=data, geom="bar")
+  q1 + geom_bar(fill="steelblue") + 
+    stat_count(aes(label=..count..), vjust=1.5, geom="text", position="identity",color="white") +
+    stat_count(aes(label = paste(sprintf("%.02f", ..count../sum(..count..)*100), "%")), 
+             geom="text",vjust=3.5,color="white")+
+    labs(title="Histogramme des notes données par les clients",x="Notes attribuées",y="Effectifs")+
+    theme(plot.title = element_text(colour="blue",size=20,hjust=0.5))  
+  }
+describe_corpus(so_ge_prevoyance)
 
 #' Transform a sentence in a given \code{file} to lemmatize all the words
 #' and find also the grammatical class of all words. This algorithm is based
@@ -240,7 +248,7 @@ nuage_de_mots <- function(dtm){
   dd<-freq_word(dtm)
   dd<-dd[ !dd$word %in% c("avoir","etre","card"),]
   palette_couleur <- brewer.pal(n = 8, name = "Dark2")
-  wordcloud(dd$word,dd$freq, scale=c(3,2),min.freq = 20, max.words = 150, random.order = F,colors= palette_couleur)
+  wordcloud(dd$word,dd$freq, scale=c(3,2),min.freq = 20, max.words = 100, random.order = F,colors= palette_couleur)
 }
 
 #' Create an igraph object with the words as vertices and the edges indexed by the weight of their relationship
@@ -349,13 +357,13 @@ communaute_freq<-function(n,dtm){
 # Construction des mod?les pour toutes les valeurs de k que l'on veut tester, par la m?thode de Gibbs
 #all.k un vecteur repr?sentant les valeurs des nombres de th?mes ? tester 
 #dtm_in matrice en format Document-Terme
-build.topic.models<-function(dtm, all.ks){ 
+build_topic_models<-function(dtm, all_ks){ 
   models<-list()
   burnin <-1500
   iter <- 4000
   keep <- 50 
   seed <- 1
-  for(k in all.ks){
+  for(k in all_ks){
     models[as.character(k)] <-LDA(dtm, k = k, method = "Gibbs",control = list(burnin=burnin,iter=iter,keep=keep, seed=seed,best=TRUE))
   }
   return(models)
@@ -367,9 +375,9 @@ coherence_tfidf<-function(model,dtm,n){ # n = number of topics in the model cons
   phi_t <- posterior(model)$terms %>% as.matrix
   liste_score <- c()
   for (topics in 1:n){ #n -> number of topics
-    col.tri <- sort(phi_t[topics,],decreasing = T)
+    col_tri <- sort(phi_t[topics,],decreasing = T)
     #We calculate the metric over the 10 best words of the topics
-    w<-col.tri[1:10]
+    w<-col_tri[1:10]
     u<-names(w)
     somme <-0
     for (i in 1:(length(u)-1)){
@@ -385,10 +393,10 @@ coherence_tfidf<-function(model,dtm,n){ # n = number of topics in the model cons
   liste_score
 }
 
-get_best_model<-function(all.topics.models,dtm){
+get_best_model<-function(all_topics_models,dtm){
   all_coherences<-list()
   indice<-1
-  for(model in all.topics.models){
+  for(model in all_topics_models){
     all_coherences[[indice]]<-coherence_tfidf(model,dtm,indice+1)
     indice<-indice + 1
   }
@@ -402,33 +410,45 @@ get_best_model<-function(all.topics.models,dtm){
   for(i in 1:Nombre_de_k){
     average_coherences[i]<-moyenne(all_coherences,i)
   }
-  average_coherences
-  plot(2:10,average_coherences)
+  data <- data.frame(x=2:10, y=average_coherences)
+  choix <- list(
+    x = (which(average_coherences ==max(average_coherences))+1),
+    y=(min(average_coherences)-1),
+    text = ~paste("Nombre de thèmes choisis:",as.character((which(average_coherences ==max(average_coherences))+1))),
+    font = list(family = 'Arial',
+                size = 16,
+                color = 'rgba(49,130,189, 1)'),
+    showarrow = FALSE)
+  p <- plot_ly(data, x = ~x, y = ~y,name="Cohérence tf-idf moyenne", type = 'scatter', mode = 'lines')%>%
+  add_trace(x= ~(which(average_coherences ==max(average_coherences))+1),name="Nombre de thèmes choisis", line = list(color = 'rgb(22, 96, 167)', width = 4))%>%
+    layout(title = "Cohérence tf-idf moyenne en fonction du nombre de thèmes",
+           xaxis = list(title = "Nombre de thèmes"),
+           yaxis = list (title = "Cohérence tf-idf moyenne"))%>%layout(annotations=choix)%>%
+    add_trace(x = ~(which(average_coherences ==max(average_coherences))+1), y = ~average_coherences[which(average_coherences ==max(average_coherences))],name="Cohérence tf-idf maximale", type = 'scatter', mode = 'markers', marker = list(color = 'rgba(67,67,67,1)', size = 8)) 
+  print(p)
   #BEST MODEL:
-  best_model<-all.topics.models[[as.character(which(average_coherences ==max(average_coherences))+1)]]
+  best_model<-all_topics_models[[as.character(which(average_coherences ==max(average_coherences))+1)]]
   best_model
 }
-################################################################################################
-give_best_model<-function(dtm){                                                                #
-  # Nombre de th?mes test?s                                                                      #
-  all.ks <- seq(2, 10, 1)                                                                        #
-  # Matrice dont les documents (lignes) contiennent au moins un terme (colonne)                  #
-  documents<-subset(as.matrix(dtm),(rowSums(as.matrix(dtm)) >0) ==TRUE)                          #
-  #
-  # Nombre optimal de th?me via LDA avec Gibbs                                                   #
-  all.topic.models <- build.topic.models(documents, all.ks)
-  best.model <- get_best_model(all.topic.models,dtm) 
-  #
-  #Output                                                                                        #
-  # Mod?le selectionn?                                                                           #
-  best.model     
-}                                                                                              #
-################################################################################################
+
+give_best_model<-function(dtm){                                                                
+  # Nombre de th?mes test?s                                                                      
+  all_ks <- seq(2, 10, 1)                                                                        
+  # Matrice dont les documents (lignes) contiennent au moins un terme (colonne)                  
+  documents<-subset(as.matrix(dtm),(rowSums(as.matrix(dtm)) >0) ==TRUE)                          
+  # Nombre optimal de th?me via LDA avec Gibbs                                                   
+  all_topic_models <- build_topic_models(documents, all_ks)
+  best_model <- get_best_model(all_topic_models,dtm) 
+  #Output                                                                                        
+  # Modele selectionne                                                                           
+  best_model     
+}                                                                                              
+
 
 ## B) ANALYSE THEMATIQUE
 
-# Caracteristiques du mod?le
-get.topic.assignments <- function(best){
+# Caracteristiques du modele
+get_topic_assignments <- function(best){
   gammaDF <- as.data.frame(best@gamma)
   names(gammaDF) <- 1:length(names(gammaDF))
   as.data.frame(cbind(document = row.names(gammaDF), topic = apply(gammaDF,1,function(x) names(gammaDF)[which(x==max(x))])))
@@ -437,29 +457,31 @@ get.topic.assignments <- function(best){
 dist_topic<-function(phi){
   bp <- ggplot(diamonds, aes(clarity, fill = cut)) +
     geom_bar()
-  dist.mat <- dist(phi)
+  dist_mat <- dist(phi)
   par(mfrow=c(1,1))
-  fit <- cmdscale(dist.mat, eig = TRUE, k = (nrow(phi)-1))
+  fit <- cmdscale(dist_mat, eig = TRUE, k = (nrow(phi)-1))
   points <- data.frame(x = fit$points[, 1], y = fit$points[, 2])
-  inertie.expl <- rep(0,times=(nrow(phi)-1))
+  inertie_expl <- rep(0,times=(nrow(phi)-1))
   for (k in 1:(nrow(phi)-1)){
     clus <- kmeans(points,centers=k,nstart=5)
-    inertie.expl[k] <- clus$betweenss/clus$totss
+    inertie_expl[k] <- clus$betweenss/clus$totss
   }
   diff<-rep(0,times=(nrow(phi)-2))
   for (k in 2:(nrow(phi)-1)){
-    diff[k-1]<-inertie.expl[k]-inertie.expl[k-1]
+    diff[k-1]<-inertie_expl[k]-inertie_expl[k-1]
   }
-  plot(1:(nrow(phi)-1),inertie.expl,type="b",xlab="Nb. de groupes",ylab="% inertie expliquée")
+  plot(1:(nrow(phi)-1),inertie_expl,type="b",xlab="Nb. de groupes",ylab="% inertie expliquée")
   k<-length(diff[diff>0.05])+1
   # Clustering
   km <- kmeans(points, centers= k, nstart=5)
   ggdata <- data.frame(points, Cluster=km$cluster, Topic=rownames(phi))
   # Figure
-  ggplot(ggdata) +
+  p<-ggplot(ggdata) +
     geom_point(aes(x=x, y=y, color=factor(Cluster)), size=6, shape=20) + 
     guides(color=guide_legend("Cluster"),fill=guide_legend("Cluster")) + 
-    geom_text(data = points, aes(x = x + 0.02, y = y),label = rownames(phi))
+    geom_text(data = points, aes(x = x + 0.02, y = y),label = rownames(phi))+
+    ggtitle("Représentation de la proximité entre les thèmes")
+  ggplotly(p)
 }
 
 try_tsne<-function(phi){
@@ -483,11 +505,11 @@ try_tsne<-function(phi){
   }
 
 #carateriser le i-eme theme
-caracterise<-function(phi_t,topics.freqs){
-  freq <- as.matrix(topics.freqs)
+caracterise<-function(phi_t,topics_freqs){
+  freq <- as.matrix(topics_freqs)
   freq2 <- as.data.frame(freq)
   freq2$theme<-paste("Thème",rownames(freq2))
-  bp<-ggplot(freq2,aes(x=theme,y=V1))+geom_bar(stat="identity")+labs(title="Nombre de mots par thème",x="Thème",y="Nombre de document")
+  bp<-ggplot(freq2,aes(x=theme,y=V1))+geom_bar(stat="identity")+labs(title="Nombre de documents par thème",x="Thème",y="Nombre de document")
   p2<-ggplotly(bp)
   print(p2)
   df <- as.data.frame(t(phi_t))
@@ -519,36 +541,28 @@ caracterise<-function(phi_t,topics.freqs){
   print(p1)
 }
 
-################################################################################################
-#
 give_theme<-function(dtm){
   #liste des themes attribuables a chaque document
-  best.model<-give_best_model(dtm)
-  document.topic.assignments <- get.topic.assignments(best.model)   
-  # Nombre de themes retenus                                                                     #
-  #
-  # Assignement des documents au th?me le plus probable                                          #
-  Topic <- topics(best.model, 1)     
-  #
-  # Probabilit? de chaque mot d'appartenir ? un theme                                            #
-  pos<-posterior(best.model)$topics   
-  phi_t <- posterior(best.model)$terms %>% as.matrix  
+  best_model<-give_best_model(dtm)
+  document_topic_assignments <- get_topic_assignments(best_model)                                             #
+  Topic <- topics(best_model, 1)     
+  # Probabilit? de chaque mot d'appartenir ? un theme                                            
+  pos<-posterior(best_model)$topics   
+  phi_t <- posterior(best_model)$terms %>% as.matrix  
   # Fr?quence des th?mes 
-  topic.freqs <- sort(table(unlist(document.topic.assignments$topic)), decreasing=T) 
-  #MDS afin d'analyser la distance entre les th?mes                                              #
-  topic_dist<-dist_topic (phi_t)                                                              #
-  #Sur le graphique sont affiches les numeros designat chaque theme,                             #
-  #les themes devant etre interprettes avec la figure obtenue avec la fonction caracterise       #
-  return(list(topic.freqs,topic_dist,phi_t,document.topic.assignments))                                                                                     #
+  topic_freqs <- sort(table(unlist(document_topic_assignments$topic)), decreasing=T) 
+  #MDS afin d'analyser la distance entre les th?mes                                              
+  topic_dist<-dist_topic (phi_t)                                                              
+  #Sur le graphique sont affiches les numeros designat chaque theme,                            
+  #les themes devant etre interprettes avec la figure obtenue avec la fonction caracterise       
+  return(list(topic_freqs,topic_dist,phi_t,document_topic_assignments))                                                                                     #
 }
 
-################################################################################################
 ############################
 #                          #
 #    Sentiment Analysis    #
 #                          #
 ############################
-
 
 sentiment_message <- function(message_brut) {
   message <- gsub(" \n", ". ", message_brut)
@@ -572,6 +586,7 @@ fonction_totale<-function(donnees,n,colonne,sparseness){
   result<- preprocess_text(donnees,colonne,sparseness)
   dtm<-result[[1]]
   dataframe_corrige <-result[[2]]
+  compar(donnees,colonne,dtm)
   nuage_de_mots(dtm)
   g<-cooccurrence(dtm)
   communaute_fg <- communaute_freq(n,dtm)
