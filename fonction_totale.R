@@ -24,12 +24,14 @@ library(dplyr)
 library(data.table)
 library(sentimentr)
 library(plotly)
+library(SnowballC)
 
 setwd("D:/ENSAE/2emeannee/Statsapp")
 #Import the dataset
 data <- read.csv2("Extraction.csv",encoding = "Latin1")
 #A dictionnary to help the process of hunspell
 dico <- read.table("liste_francais.txt",encoding = "Latin1")
+FEEL <- read.csv2("FEEL.csv",encoding="Latin1")
 #A few dictionnaries for the sentiment analysis
 hash_valence <- read.csv2("hash_valence_fr.csv")
 hash_sentiment <- read.csv2("hash_sentiment_fr.csv")
@@ -60,7 +62,6 @@ describe_corpus<-function(data){
     labs(title="Histogramme des notes données par les clients",x="Notes attribuées",y="Effectifs")+
     theme(plot.title = element_text(colour="blue",size=20,hjust=0.5))  
   }
-describe_corpus(so_ge_prevoyance)
 
 #' Transform a sentence in a given \code{file} to lemmatize all the words
 #' and find also the grammatical class of all words. This algorithm is based
@@ -71,29 +72,48 @@ describe_corpus(so_ge_prevoyance)
 #' @return The sentence with all words lemmatized 
 #' @examples
 #' dataframe_correction("Myfile.txt","C:/TreeTagger")
+hunspell_stem("été",dict=dictionary("fr"))
+stemm<-function(words){
+  t<-hunspell_stem(words,dict=dictionary("fr"))
+  for(i in c(1:length(t))){
+    effect<-(length(t[[i]])>1)
+    if (effect){
+      t[[i]]<-t[[i]][2]
+    }
+    else{
+      if(length(t[[i]])==0){
+        t[[i]]<-words[[i]]
+      }
+    }
+  }
+  t
+}
+
 lemmatizeCorpus <- function(x,adress) {
   if (x!=""){
     suppressMessages(words.cc <- treetag(x, treetagger="manual", format="obj",
                         TT.tknz=FALSE, lang="fr",encoding="Latin1",
                         TT.options=list(path=adress, preset="fr")))
-    
     words.lm <- ifelse(words.cc@TT.res$token != words.cc@TT.res$lemma, 
-                       ifelse(words.cc@TT.res$lemma != "<unknown>", words.cc@TT.res$lemma, words.cc@TT.res$token),
+                       ifelse(words.cc@TT.res$lemma != "<unknown>", words.cc@TT.res$lemma,stemm(words.cc@TT.res$token)),
                        words.cc@TT.res$token)
+    words_tags<-words.cc@TT.res$tag
+    names(words_tags)<-words.lm
     lemme <- toString(paste(words.lm, collapse = " "))
-    lemme <- str_replace_all(lemme,"ê","?")%>%str_replace_all("@card@" ,"")%>%
-      str_replace_all("\"","")%>%str_replace_all("\ \"","")%>%str_replace_all("suivre|Ãªtre","etre")%>%
+    lemme <- str_replace_all(lemme,"ê","e")%>%str_replace_all("@card@" ,"")%>%
+      str_replace_all("\"","")%>%str_replace_all("\ \"","")%>%str_replace_all("Ã®","i")%>%
+      str_replace_all("suivre|Ãªtre","etre")%>%
       str_replace_all("Ã©","e")%>%str_replace_all("Ã¨","e")%>%str_replace_all("Ã","a")%>%
       str_replace_all( "Ãª","e")%>%str_replace_all("Ã§","c")%>%str_replace_all("Å","oe")%>%
       str_replace_all("Ã¹","u")%>%str_replace_all("Ã«","e")%>%str_replace_all("[EÉÈÊËéèêë]", "e")%>%
       str_replace_all("a©","e")%>%str_replace_all("a¨","e")%>%str_replace_all( "aª","e")%>%
       str_replace_all("Ã","e")%>%str_replace_all("etre","")%>%str_replace_all("avoir","")
-  }
+    return(c(lemme,words_tags))
+    }
   else{ 
     x
     }
 }
-
 #' Correct the spelling of a given sentence.
 #' 
 #' @param sentence a french string
@@ -151,8 +171,16 @@ spell_checker<- function(sentence){
 lemmatizer_dataframe <- function(data,adress,column){
   data[,column]<-sapply(data[,column],as.character)
   data$corrige<-sapply(data[,column],spell_checker)
-  data$lemme<-sapply(X = data$corrige, FUN = function(x){ lemmatizeCorpus(x,adress)},USE.NAMES = F)
-  data
+  data$enregistrement<-sapply(X = data$corrige, FUN = function(x){ lemmatizeCorpus(x,adress)},USE.NAMES = F)
+  recupere2<-function(x){
+    x[1]
+  }
+  recupere<-function(x){
+    x[2:length(x)]
+  }
+  data$lemme<-sapply(data$enregistrement,recupere2)
+  data$tags<-sapply(data$enregistrement,recupere)
+  data[,-which(colnames(data)=="enregistrement")]
 }
 
 #' Delete all the numbers, spaces and ponctuations present in corpus
@@ -205,6 +233,27 @@ preprocess_text<-function(data,column,sparseness=0.99,file="C:/TreeTagger"){
   list(dtm,dataframe_corrige)
 }
 
+data<-preprocess_text(so_ge_prevoyance,"raisons_recommandation")
+donnes<-data[[2]]
+
+get_all_tags<-function(data){
+  tags<-c()
+  noms<-c()
+  for (i in 1:nrow(data)){
+    liste<-data$tags[i][[1]]
+    for (j in 1:length(liste)){
+      try({      
+        noms[length(noms)+1]<-names(liste)[j]
+      tags[length(tags)+1]<-str_sub(liste[j],1,3)
+      })
+
+    }
+  }
+  grammar<-data.frame(noms=noms,tags=tags)
+  grammar<-grammar[!duplicated(grammar),]
+  grammar
+}
+get_all_tags()
 dtm<-readRDS("dtm_epargne.RDS")
 
 #' Display the histogram reprensenting the distribution of words before and after the text preprocessing
@@ -364,7 +413,7 @@ build_topic_models<-function(dtm, all_ks){
   keep <- 50 
   seed <- 1
   for(k in all_ks){
-    models[as.character(k)] <-LDA(dtm, k = k, method = "Gibbs",control = list(burnin=burnin,iter=iter,keep=keep, seed=seed,best=TRUE))
+    models[as.character(k)] <-LDA(dtm, k = k, method = "Gibbs",control = list(burnin=burnin,iter=iter,keep=keep, seed=seed))
   }
   return(models)
 }
@@ -505,7 +554,7 @@ try_tsne<-function(phi){
   }
 
 #carateriser le i-eme theme
-caracterise<-function(phi_t,topics_freqs){
+caracterise<-function(phi_t,topics_freqs,donnees){
   freq <- as.matrix(topics_freqs)
   freq2 <- as.data.frame(freq)
   freq2$theme<-paste("Thème",rownames(freq2))
@@ -522,8 +571,12 @@ caracterise<-function(phi_t,topics_freqs){
   col[length(col)+1]<-"nom"
   colnames(df)<-col
   a_garder<-c()
+  tags<-get_all_tags(donnees)
+  a_eliminer<-tags[tags$tags %in% c("ADJ","KON","PRP","PUN","DET","PRO","ADV","NUM"),1]
+  df<- df[!df$nom %in% a_eliminer,]
   for (i in (1:(ncol(df)-1))){
     df<-df[order(df[,i],decreasing=T),]
+    df<-df[!rownames(df)%in%hash_valence$x,]
     a_garder<-c(a_garder,c(rownames(df[1:10,])))
     ref <- df[,i]
     for (j in 1:10){
@@ -552,10 +605,10 @@ give_theme<-function(dtm){
   # Fr?quence des th?mes 
   topic_freqs <- sort(table(unlist(document_topic_assignments$topic)), decreasing=T) 
   #MDS afin d'analyser la distance entre les th?mes                                              
-  topic_dist<-dist_topic (phi_t)                                                              
+  #topic_dist<-dist_topic (phi_t)                                                              
   #Sur le graphique sont affiches les numeros designat chaque theme,                            
   #les themes devant etre interprettes avec la figure obtenue avec la fonction caracterise       
-  return(list(topic_freqs,topic_dist,phi_t,document_topic_assignments))                                                                                     #
+  return(list(topic_freqs,phi_t,document_topic_assignments))                                                                                     #
 }
 
 ############################
@@ -563,7 +616,6 @@ give_theme<-function(dtm){
 #    Sentiment Analysis    #
 #                          #
 ############################
-
 sentiment_message <- function(message_brut) {
   message <- gsub(" \n", ". ", message_brut)
   #message <- as.character(message_brut)
@@ -590,26 +642,45 @@ fonction_totale<-function(donnees,n,colonne,sparseness){
   nuage_de_mots(dtm)
   g<-cooccurrence(dtm)
   communaute_fg <- communaute_freq(n,dtm)
-  View(dataframe_corrige)
   theme <- give_theme(dtm)
   topics.freqs<-theme[[1]]
-  topic_dist <- theme[[2]]
-  phi_t<-theme[[3]]
-  topics.assignement <- theme [[4]]
-  caracterise(phi_t,topics.freqs)
-  dist_topic(phi_t)
+  phi_t<-theme[[2]]
+  topics.assignement <- theme [[3]]
+  caracterise(phi_t,topics.freqs,dataframe_corrige)
   try_tsne(phi_t)
-  return(list(dtm,dataframe_corrige,topics.freqs,phi_t,topic_dist,topics.assignement))
+  return(list(dtm,dataframe_corrige,topics.freqs,phi_t,topics.assignement))
 }
 
 so_ge<-read.csv2("verbatims_SRC_230118_ENSAE.csv")
 so_ge_prevoyance<-so_ge[so_ge$REPRISE_ACTIVITE=="Epargne",]
-hash_sentiment<-hash_sentiment[!hash_sentiment$x %in% hash_valence$x,]
-hash_sentiment<-hash_sentiment[!duplicated(hash_sentiment),]
-
+so_ge_prevoyance<-so_ge_prevoyance[]
 debut<-Sys.time()
 Rprof("D:/ENSAE/2emeannee/Statsapp/Profile.txt") # L'adresse où on veut enregistrer le résultat
 result<- fonction_totale(so_ge_prevoyance,80,"raisons_recommandation",sparseness = 0.995)
 Rprof(NULL) # Arrêter le Profiler
 summaryRprof("D:/ENSAE/2emeannee/Statsapp/Profile.txt") 
 Sys.time()-debut
+
+gestion_dtm<-function(dtm){
+  mots_sentiment<-FEEL[,"word"]
+  colnames(dico)<-"word"
+  mots_dictionnaire <-dico
+  mots_total<-rbind(mots_sentiment,mots_dictionnaire)
+  mots_total<-mots_total[!is.na(mots_total),]
+  mots_total<-tolower(mots_total)
+  mots_a_ajouter<-unique(mots_total)
+  modife<-function(x){
+    x<-str_replace_all(x,"[éèê]","e")%>%str_replace_all("â","a")%>%
+      str_replace_all("ç","c")
+    x
+  }
+  mots_a_ajouter<-modife(mots_a_ajouter)
+  nom_dtm<-colnames(dtm)
+  mots_finaux <- mots_a_ajouter[!mots_a_ajouter %in% nom_dtm]
+  dtm<-as.matrix(dtm)
+  mat<-matrix(data=rep(0,nrow(dtm)*length(mots_finaux)),nrow=nrow(dtm),ncol=length(mots_finaux))
+  colnames(mat)<-mots_finaux
+  dtm_final<- cbind(dtm,mat)
+  dtm_final<-dtm_final[,order(colnames(dtm_final))]
+  dtm_final    
+  }
