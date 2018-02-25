@@ -7,6 +7,30 @@ library(ggplot2)
 library(tm)
 library(MLmetrics)
 
+gestion_dtm<-function(dtm){
+  mots_sentiment<-FEEL[,"word"]
+  colnames(dico)<-"word"
+  mots_dictionnaire <-dico
+  mots_total<-rbind(mots_sentiment,mots_dictionnaire)
+  mots_total<-mots_total[!is.na(mots_total),]
+  mots_total<-tolower(mots_total)
+  mots_a_ajouter<-unique(mots_total)
+  modife<-function(x){
+    x<-str_replace_all(x,"[éèê]","e")%>%str_replace_all("â","a")%>%
+      str_replace_all("ç","c")
+    x
+  }
+  mots_a_ajouter<-modife(mots_a_ajouter)
+  nom_dtm<-colnames(dtm)
+  mots_finaux <- mots_a_ajouter[!mots_a_ajouter %in% nom_dtm]
+  dtm<-as.matrix(dtm)
+  mat<-matrix(data=rep(0,nrow(dtm)*length(mots_finaux)),nrow=nrow(dtm),ncol=length(mots_finaux))
+  colnames(mat)<-mots_finaux
+  dtm_final<- cbind(dtm,mat)
+  dtm_final<-dtm_final[,order(colnames(dtm_final))]
+  dtm_final    
+}
+
 #load test results
 setwd("D:/ENSAE/2emeannee/Statsapp")
 table<-read.csv('tableau_calibrage.csv')
