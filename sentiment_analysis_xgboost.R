@@ -82,13 +82,13 @@ search_best_config<-function(number_class,dtm_ep){
   eta_par <- 0.1
   nrounds_par <- 5 / eta_par
   # XGB.TRAIN WITH PREVIOUS PARAMETER + test on eta 
-  watchlist<-get_data_xgboost(dtm_ep)[[1]]
+  watchlist<-get_data_xgboost(dtm_ep)[[2]]
   dtrain<-watchlist$train
   Logloss_list<-c()
   param<-data.frame(eta=c(),max_depth=c(),subsample=c(),colsample_bytree=c(),objective=c(),eval_metric=c(),num_class=c(),nthread=c(),tree_method=c(),silent=c())
-  for(depth_par in seq(6, 14, by = 2)) {
-    for(subsample_par in seq(0.1, 1, by = 0.1)) {
-      for(colsample_bytree_par in seq(0.1, 1, by = 0.1)) {
+  for(depth_par in seq(6, 7, by = 2)) {
+    for(subsample_par in seq(0.1, 0.2, by = 0.1)) {
+      for(colsample_bytree_par in seq(0.1, 0.2, by = 0.1)) {
           bstSparse <- xgb.train(data = dtrain,eta = eta_par, max_depth = depth_par, subsample = subsample_par,
                                      colsample_bytree = colsample_bytree_par,objective = "multi:softmax",eval_metric="mlogloss",
                                  num_class = number_class,nrounds = nrounds_par,nthread = 2, tree_method = "auto", 
@@ -101,17 +101,17 @@ search_best_config<-function(number_class,dtm_ep){
   data<-cbind(data.frame(logloss=Logloss_list),param)
   data
 }
-#t<-search_best_config(3,dtm_ep)
+t<-search_best_config(3,dtm_ep)
 #write.csv2(params[,2:ncol(params)],"logloss.csv",row.names = FALSE)
 # XGB.TRAIN WITH PREVIOUS PARAMETER + test on eta 
 params<-read.csv2("logloss.csv")
 predictor<-funtion(params,dtm_ep){
-eta<-params[params$logloss==min(params$logloss),2:ncol(params)]$eta
-xgb.train(data=dtrain,nrounds=5/eta,t[t$logloss==min(t$logloss),2:ncol(t)])
-data<-get_data_xgboost(dtm_ep)
-watchlist<-data[[2]]
-dtrain<-watchlist$train
-test<-data[[1]]
+  eta<-params[params$logloss==min(params$logloss),2:ncol(params)]$eta
+  xgb.train(data=dtrain,nrounds=5/eta,t[t$logloss==min(t$logloss),2:ncol(t)])
+  data<-get_data_xgboost(dtm_ep)
+  watchlist<-data[[2]]
+  dtrain<-watchlist$train
+  test<-data[[1]]
 }
 
 pred <- predict(bstSparse, xgb.DMatrix(data = as.matrix(data_tot[(n+1):nrow(data_tot),2:ncol(data_tot)])))
