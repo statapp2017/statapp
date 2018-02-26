@@ -1,9 +1,16 @@
+# BEST PARAMETERS FOR XGBOOST ACCORDING TO PREVIOUS TEST
+
 rm(list = ls())
 #install.packages("xgboost",dependencies = TRUE)
 library(xgboost)
 library(ggplot2)
 library(tm)
 library(MLmetrics)
+#install.packages("foreach")
+library(foreach)
+#install.packages("doParallel")
+library(doParallel)  
+library(dplyr)
 
 gestion_dtm<-function(dtm){
   mots_sentiment<-FEEL[,"word"]
@@ -59,17 +66,17 @@ creation_class<-function(x,number_class){
   x
 }
 
-get_data_xgboost<-function(dtm_ep){
+get_data_xgboost<-function(dtm_ep,train_test_split=.8,train_valid_split=.8){
   d1 <- as.data.frame(as.matrix(dtm_ep))
   data_tot<-cbind(epargne$recommandation_SGK,d1)
   colnames(data_tot)<-c("recommandation_SGK",colnames(d1))
   data_tot$recommandation_SGK<-sapply(data_tot$recommandation_SGK,FUN=function(x){creation_class(x,3)})
-  sample1 = sample.int(n = nrow(data_tot), size = floor(.8*nrow(data_tot)), replace = F)
+  sample1 = sample.int(n = nrow(data_tot), size = floor(train_test_split*nrow(data_tot)), replace = F)
   train<-data_tot[sample1,]
   test<-data_tot[-sample1,]
-  sample2 = sample.int(n = nrow(train), size = floor(.8*nrow(train)), replace = F)
-  train_t = train[sample2, ] 
-  valid  = train[-sample2, ] 
+  sample2 = sample.int(n = nrow(train), size = floor(train_valid_split*nrow(train)), replace = F)
+  train_t = train[sample2,] 
+  valid  = train[-sample2,] 
   dtrain<-xgb.DMatrix(data = as.matrix(train_t[,2:ncol(data_tot)]),label = as.matrix(train_t[,1])) 
   dvalid<-xgb.DMatrix(data = as.matrix(valid[,2:ncol(data_tot)]),label = as.matrix(valid[,1]))
   watchlist = list(train = dtrain, valid = dvalid)
@@ -99,10 +106,13 @@ search_best_config<-function(number_class,dtm_ep){
   data<-cbind(data.frame(logloss=Logloss_list),param)
   data
 }
-t<-search_best_config(3,dtm_ep)
+
+#t<-search_best_config(3,dtm_ep)
+
 #write.csv2(params[,2:ncol(params)],"logloss.csv",row.names = FALSE)
+
 # XGB.TRAIN WITH PREVIOUS PARAMETER + test on eta 
-params<-read.csv2("logloss.csv")
+parameters<-read.csv2("logloss.csv")
 predictor<-funtion(params,dtm_ep){
   eta<-params[params$logloss==min(params$logloss),2:ncol(params)]$eta
   xgb.train(data=dtrain,nrounds=5/eta,t[t$logloss==min(t$logloss),2:ncol(t)])
@@ -111,6 +121,24 @@ predictor<-funtion(params,dtm_ep){
   dtrain<-watchlist$train
   test<-data[[1]]
 }
+params<-parameters[parameters$logloss==min(parameters$logloss),2:ncol(parameters),]
+t<-get_data_xgboost(dtm_ep,train_test_split=1,train_valid_split=.8)[[2]]$train
 
-pred <- predict(bstSparse, xgb.DMatrix(data = as.matrix(data_tot[(n+1):nrow(data_tot),2:ncol(data_tot)])))
-bstSparse
+bagging<-function(params,dtm_ep,length_divisor=4,iterations=5){
+  cl <- detectCores() %>% -1 %>% makeCluster
+  registerDoParallel(cl)  
+  dtest<-get_data_xgboost(dtm_ep,train_test_split=1,train_valid_split=.8)[[2]]$valid
+  dtrain<-watchlist$train
+  eta<-params$eta
+  predictions<-foreach(m=1:iterations,.packages=c('xgboost'),.combine=cbind) %do% {
+    training_positions <- sample(nrow(dtrain), size=floor((nrow(dtrain)/length_divisor)))
+    sub_dtrain<-dtrain[training_positions,]
+    bstSparse <- xgb.train(data=sub_dtrain,nrounds=5/eta,params,watchlist = list(train=sub_dtrain,valid=dtest),verbose=0,early_stopping_rounds=50)
+    predict(bstSparse,newdata=dtest)
+  }
+  num_class<-(params$num_class-1)
+  for (i in 0:num_class){
+    for (j in 1:nrow(predictions))
+  }
+}
+t<-bagging(params,dtm_ep)
