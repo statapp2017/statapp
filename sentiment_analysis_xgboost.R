@@ -1,5 +1,3 @@
-# BEST PARAMETERS FOR XGBOOST ACCORDING TO PREVIOUS TEST
-
 rm(list = ls())
 #install.packages("xgboost",dependencies = TRUE)
 library(xgboost)
@@ -86,9 +84,9 @@ search_best_config<-function(number_class,dtm_ep){
   dtrain<-watchlist$train
   Logloss_list<-c()
   param<-data.frame(eta=c(),max_depth=c(),subsample=c(),colsample_bytree=c(),objective=c(),eval_metric=c(),num_class=c(),nthread=c(),tree_method=c(),silent=c())
-  for(depth_par in seq(6, 7, by = 2)) {
-    for(subsample_par in seq(0.1, 0.2, by = 0.1)) {
-      for(colsample_bytree_par in seq(0.1, 0.2, by = 0.1)) {
+  for(depth_par in seq(6, 14, by = 2)) {
+    for(subsample_par in seq(0.1, 1, by = 0.1)) {
+      for(colsample_bytree_par in seq(0.1, 1, by = 0.1)) {
           bstSparse <- xgb.train(data = dtrain,eta = eta_par, max_depth = depth_par, subsample = subsample_par,
                                      colsample_bytree = colsample_bytree_par,objective = "multi:softmax",eval_metric="mlogloss",
                                  num_class = number_class,nrounds = nrounds_par,nthread = 2, tree_method = "auto", 
