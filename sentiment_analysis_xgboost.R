@@ -1,17 +1,3 @@
-# BEST PARAMETERS FOR XGBOOST ACCORDING TO PREVIOUS TEST
-
-rm(list = ls())
-#install.packages("xgboost",dependencies = TRUE)
-library(xgboost)
-library(ggplot2)
-library(tm)
-library(MLmetrics)
-#install.packages("foreach",dependencies = TRUE)
-library(foreach)
-library(doParallel)  
-library(dplyr)
-library(iterators)
-
 gestion_dtm<-function(dtm){
   mots_sentiment<-FEEL[,"word"]
   colnames(dico)<-"word"
@@ -73,7 +59,7 @@ get_data_xgboost<-function(dtm_ep,data,number_class,train_test_split=.8,train_va
   dtrain<-xgb.DMatrix(data = as.matrix(train_t[,2:ncol(data_tot)]),label = as.matrix(train_t[,1])) 
   dvalid<-xgb.DMatrix(data = as.matrix(valid[,2:ncol(data_tot)]),label = as.matrix(valid[,1]))
   watchlist = list(train = dtrain, valid = dvalid)
-  list(test,watchlist,sample2)
+  list(valid,train_t,watchlist,sample2,test)
 }
 
 search_best_config<-function(number_class,dtm_ep){
@@ -110,11 +96,12 @@ bagging<-function(data,column,params,dtm_ep,number_class,length_divisor=4,iterat
   #cl <- makeCluster(3)
   #clusterExport(cl,c("dtrain","dtest","eta","params"))
   #registerDoParallel(cl)
-  label<-sapply(data[,column],FUN=function(x){creation_class(x,number_class)})
   predictions<-foreach(m=1:iterations,.packages=c('xgboost'),.combine=cbind) %do% {
     data_tot<-get_data_xgboost(dtm_ep,data,number_class,train_test_split=1,train_valid_split=.8)
-    watchlist<-data_tot[[2]]
-    new_sample<-data_tot[[3]]
+    watchlist<-data_tot[[3]]
+    new_sample<-data_tot[[4]]
+    train_t<-data_tot[[2]]
+    test_t<-data_tot[[1]]
     dtest<-watchlist$valid
     dtrain<-watchlist$train
     eta<-params$eta
@@ -122,15 +109,20 @@ bagging<-function(data,column,params,dtm_ep,number_class,length_divisor=4,iterat
     sub_dtrain<-dtrain[training_positions,]
     bstSparse <- xgb.train(data=sub_dtrain,nrounds=5/eta,params,watchlist = list(train=sub_dtrain,valid=dtest),verbose=0,early_stopping_rounds=50)
     importance<-xgb.importance(colnames(dtm_ep),model = bstSparse,data=as.matrix(dtm_ep)[new_sample,],label=data[new_sample,column] )
-    View(importance)
     print(xgb.ggplot.importance(importance_matrix = importance,top_n = 30,n_clusters = 1))
-    predict(bstSparse,newdata=dtest)
-  }
+    explainer <- lime(train_t[training_positions,2:ncol(train_t)], bstSparse)
+    explanations <- explain(test_t[,2:ncol(test_t)], explainer, n_labels = 1, n_features = 2)
+    pred<-lapply(predict(bstSparse,newdata=dtest),as.integer)
+    #new_test<-cbind(pred,test_t)
+    #sentences_expl<-new_test[new_test[,1]==1,2:ncol(new_test)]
+    #print(sentences_expl)
+    pred
+    }
   for (col in 1:ncol(predictions)){
     predictions[,col]<-sapply(predictions[,col],as.character)
   }
   num_class<-(params$num_class-1)
-  as.data.frame(predictions)
+  predictions<-as.data.frame(predictions)
   prediction<-c()
   for (j in 1:nrow(predictions)){
     pred<-0
