@@ -42,7 +42,7 @@ creation_class<-function(x,number_class){
       x<-2
     }
   }
-  x
+  as.factor(x)
 }
 
 get_data_xgboost<-function(dtm_ep,data,number_class,train_test_split=.8,train_valid_split=.8){
@@ -91,8 +91,9 @@ search_best_config<-function(number_class,dtm_ep){
 #write.csv2(params[,2:ncol(params)],"logloss.csv",row.names = FALSE)
 parameters<-read.csv2("logloss.csv")
 params<-parameters[parameters$logloss==min(parameters$logloss),2:ncol(parameters),]
+params$objective<-as.character(params$objective)
 
-bagging<-function(data,column,params,dtm_ep,number_class,length_divisor=4,iterations=2){
+bagging<-function(data,column,params,dtm_ep,number_class,length_divisor=4,iterations=1){
   #cl <- makeCluster(3)
   #clusterExport(cl,c("dtrain","dtest","eta","params"))
   #registerDoParallel(cl)
@@ -105,24 +106,27 @@ bagging<-function(data,column,params,dtm_ep,number_class,length_divisor=4,iterat
     dtest<-watchlist$valid
     dtrain<-watchlist$train
     eta<-params$eta
+    print(unique(train_t[,1]))
     training_positions <- sample(nrow(dtrain), size=floor((nrow(dtrain)/2)))
     sub_dtrain<-dtrain[training_positions,]
     bstSparse <- xgb.train(data=sub_dtrain,nrounds=5/eta,params,watchlist = list(train=sub_dtrain,valid=dtest),verbose=0,early_stopping_rounds=50)
-    importance<-xgb.importance(colnames(dtm_ep),model = bstSparse,data=as.matrix(dtm_ep)[new_sample,],label=data[new_sample,column] )
+    importance<-xgb.importance(colnames(dtm_ep),model = bstSparse)
     print(xgb.ggplot.importance(importance_matrix = importance,top_n = 30,n_clusters = 1))
-    explainer <- lime(train_t[training_positions,2:ncol(train_t)], bstSparse)
-    explanations <- explain(test_t[,2:ncol(test_t)], explainer, n_labels = 1, n_features = 2)
-    pred<-lapply(predict(bstSparse,newdata=dtest),as.integer)
-    #new_test<-cbind(pred,test_t)
-    #sentences_expl<-new_test[new_test[,1]==1,2:ncol(new_test)]
-    #print(sentences_expl)
+    pred<-predict(bstSparse,newdata=dtest)
+    new_test<-cbind(pred,test_t)
+    text_correct<-new_test[new_test$pred==new_test$recommandation_SGK,]
+    test<-rbind(rbind(head(text_correct[text_correct[,pred]==0,],2),head(text_correct[text_correct[,pred]==1,],2)),head(text_correct[text_correct[,pred]==2,],2))
+    explainer <- lime(train_t[training_positions,2:ncol(train_t)], bstSparse,bin_continuous=FALSE)
+    explanations <- explain(test[,3:ncol(test)], explainer, n_labels=3, n_features = 20)
+    View(explanations)
+    print(plot_features(explanations),ncol=3)
     pred
-    }
-  for (col in 1:ncol(predictions)){
-    predictions[,col]<-sapply(predictions[,col],as.character)
   }
   num_class<-(params$num_class-1)
   predictions<-as.data.frame(predictions)
+  for (col in 1:ncol(predictions)){
+    predictions[,col]<-sapply(predictions[,col],as.character)
+  }
   prediction<-c()
   for (j in 1:nrow(predictions)){
     pred<-0
