@@ -117,7 +117,7 @@ bagging<-function(data,column,params,dtm_ep,number_class,length_divisor=4,iterat
     text_correct<-new_test[new_test$pred==new_test$recommandation_SGK,]
     test<-rbind(rbind(head(text_correct[text_correct[,pred]==0,],2),head(text_correct[text_correct[,pred]==1,],2)),head(text_correct[text_correct[,pred]==2,],2))
     explainer <- lime(train_t[training_positions,2:ncol(train_t)], bstSparse,bin_continuous=FALSE)
-    explanations <- explain(test[,3:ncol(test)], explainer, n_labels=3, n_features = 20)
+    explanations <- explain(test[,3:ncol(test)], explainer, n_labels=1, n_features = 20)
     View(explanations)
     print(plot_features(explanations),ncol=3)
     pred
