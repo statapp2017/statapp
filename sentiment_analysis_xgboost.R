@@ -1,29 +1,20 @@
-gestion_dtm<-function(dtm){
-  mots_sentiment<-FEEL[,"word"]
-  colnames(dico)<-"word"
-  mots_dictionnaire <-dico
-  mots_total<-rbind(mots_sentiment,mots_dictionnaire)
-  mots_total<-mots_total[!is.na(mots_total),]
-  mots_total<-tolower(mots_total)
-  mots_a_ajouter<-unique(mots_total)
-  modife<-function(x){
-    x<-str_replace_all(x,"[éèê]","e")%>%str_replace_all("â","a")%>%
-      str_replace_all("ç","c")
-    x
+
+gestion_dtm<-function(dtm,nom_colonnes){
+  dtm<-as.data.frame(as.matrix(dtm))
+  a_enlever<-colnames(dtm)[which(!colnames(dtm) %in%nom_colonnes)]
+  if(length(a_enlever)>1){
+      dtm$mots_supplementaire<-rowSums(dtm[,colnames(dtm) %in% a_enlever])
+      dtm<-dtm[,!colnames(dtm) %in% a_enlever]
+    }
+  else{
+    dtm$mots_supplementaire<-rep(0,nrow(dtm))
   }
-  mots_a_ajouter<-modife(mots_a_ajouter)
-  nom_dtm<-colnames(dtm)
-  mots_finaux <- mots_a_ajouter[!mots_a_ajouter %in% nom_dtm]
-  dtm<-as.matrix(dtm)
-  mat<-matrix(data=rep(0,nrow(dtm)*length(mots_finaux)),nrow=nrow(dtm),ncol=length(mots_finaux))
-  colnames(mat)<-mots_finaux
-  dtm_final<- cbind(dtm,mat)
-  dtm_final<-dtm_final[,order(colnames(dtm_final))]
-  dtm_final    
+  dtm<-dtm[,order(colnames(dtm))]
+  dtm
 }
 
 creation_class<-function(x,number_class){
-  if (number_class=="2"){
+  if (number_class==2){
     if (x <6){
       x<-0
     }
@@ -31,14 +22,14 @@ creation_class<-function(x,number_class){
       x<-1
     }
   }
-  if (number_class=="3"){
-    if (x<5){
+  if (number_class==3){
+    if (x<6){
       x<-0
     }
-    if (x %in% 5:7){
+    if (x %in% 6:8){
       x<-1
     }
-    if(x>7){
+    if(x>8){
       x<-2
     }
   }
@@ -93,11 +84,9 @@ parameters<-read.csv2("logloss.csv")
 params<-parameters[parameters$logloss==min(parameters$logloss),2:ncol(parameters),]
 params$objective<-as.character(params$objective)
 
-bagging<-function(data,column,params,dtm_ep,number_class,length_divisor=4,iterations=1){
-  #cl <- makeCluster(3)
-  #clusterExport(cl,c("dtrain","dtest","eta","params"))
-  #registerDoParallel(cl)
-  predictions<-foreach(m=1:iterations,.packages=c('xgboost'),.combine=cbind) %do% {
+bagging<-function(data,column,params,dtm_ep,number_class,nom_colonnes,length_divisor=4,iterations=2){
+  dtm_ep<-gestion_dtm(dtm_ep,nom_colonnes)
+  predictions<-foreach(m=1:iterations,.export=c("get_data_xgboost"),.packages=c('xgboost'),.combine=cbind) %do% {
     data_tot<-get_data_xgboost(dtm_ep,data,number_class,train_test_split=1,train_valid_split=.8)
     watchlist<-data_tot[[3]]
     new_sample<-data_tot[[4]]
@@ -106,20 +95,20 @@ bagging<-function(data,column,params,dtm_ep,number_class,length_divisor=4,iterat
     dtest<-watchlist$valid
     dtrain<-watchlist$train
     eta<-params$eta
-    print(unique(train_t[,1]))
     training_positions <- sample(nrow(dtrain), size=floor((nrow(dtrain)/2)))
     sub_dtrain<-dtrain[training_positions,]
     bstSparse <- xgb.train(data=sub_dtrain,nrounds=5/eta,params,watchlist = list(train=sub_dtrain,valid=dtest),verbose=0,early_stopping_rounds=50)
     importance<-xgb.importance(colnames(dtm_ep),model = bstSparse)
     print(xgb.ggplot.importance(importance_matrix = importance,top_n = 30,n_clusters = 1))
     pred<-predict(bstSparse,newdata=dtest)
-    new_test<-cbind(pred,test_t)
-    text_correct<-new_test[new_test$pred==new_test$recommandation_SGK,]
-    test<-rbind(rbind(head(text_correct[text_correct[,pred]==0,],2),head(text_correct[text_correct[,pred]==1,],2)),head(text_correct[text_correct[,pred]==2,],2))
-    explainer <- lime(train_t[training_positions,2:ncol(train_t)], bstSparse,bin_continuous=FALSE)
-    explanations <- explain(test[,3:ncol(test)], explainer, n_labels=1, n_features = 20)
-    View(explanations)
-    print(plot_features(explanations),ncol=3)
+    #new_test<-cbind(pred,test_t)
+    #text_correct<-new_test[new_test$pred==new_test$recommandation_SGK,]
+    #test<-rbind(rbind(head(text_correct[text_correct[,pred]==0,],2),head(text_correct[text_correct[,pred]==1,],2)),head(text_correct[text_correct[,pred]==2,],2))
+    #explainer <- lime(train_t[training_positions,2:ncol(train_t)], bstSparse,bin_continuous=FALSE)
+    #explanations <- explain(test[,3:ncol(test)], explainer, n_labels=1, n_features = 20)
+    #print(plot_features(explanations),ncol=3)
+    t<-multiclass.roc(test_t[,1],pred)
+    print(auc(t))
     pred
   }
   num_class<-(params$num_class-1)
@@ -140,7 +129,10 @@ bagging<-function(data,column,params,dtm_ep,number_class,length_divisor=4,iterat
     }
     prediction[length(prediction)+1]<-pred
   }
+  t<-multiclass.roc(test_t[,1],prediction)
+  print(auc(t))
   prediction
 }
 
-predictions<-bagging(so_ge_prevoyance,"recommandation_SGK",params,dtm_ep,3)
+
+predictions<-bagging(so_ge_prevoyance,"recommandation_SGK",params,dtm_ep,3,colnames(dtm_ep))
