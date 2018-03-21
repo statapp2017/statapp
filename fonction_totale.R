@@ -22,7 +22,6 @@ library(ggplot2)
 library(lattice)
 library(rjmcmc)
 library(magrittr)
-library(dplyr)
 library(data.table)
 library(sentimentr)
 library(plotly)
@@ -30,12 +29,7 @@ library(SnowballC)
 library(snowfall)
 library(xgboost)
 library(MLmetrics)
-#install.packages("foreach",dependencies = TRUE)
-library(foreach)
-library(doParallel)  
 library(iterators)
-#install.packages("lime",dependencies=TRUE)
-library(lime)
 library(caret)
 
 setwd("D:/ENSAE/2emeannee/Statsapp")
@@ -264,7 +258,7 @@ preprocess_text<-function(data,column,sparseness=0.99,file="C:/TreeTagger"){
   corpus <-notation_harmonisation(table_tm)%>%delete_stopwords()
   dtm <- creation_DTM(corpus,sparseness)
   tdm <- TermDocumentMatrix(corpus, control = list(tokenize = BigramTokenizer))
-  list(dtm,dataframe_corrige,tdm)
+  list(dtm=dtm,dataframe_corrige=dataframe_corrige,tdm=tdm)
 }
 
 get_all_tags<-function(data){
@@ -640,6 +634,7 @@ caracterise<-function(phi_t,topics_freqs,donnees){
 give_theme<-function(dtm){
   #liste des themes attribuables a chaque document
   best_model<-give_best_model(dtm)
+  print(best_model)
   document_topic_assignments <- get_topic_assignments(best_model)                                             #
   Topic <- topics(best_model, 1)     
   # Probabilit? de chaque mot d'appartenir ? un theme                                            
@@ -651,8 +646,10 @@ give_theme<-function(dtm){
   #topic_dist<-dist_topic (phi_t)                                                              
   #Sur le graphique sont affiches les numeros designat chaque theme,                            
   #les themes devant etre interprettes avec la figure obtenue avec la fonction caracterise       
-  return(list(topic_freqs,phi_t,document_topic_assignments))                                                                                     #
+  return(list(topics_freq=topic_freqs,phi_t=phi_t,document_topic_assignements=document_topic_assignments,models=best_model))                                                                                     #
 }
+model_theme<-give_theme(dtm_ep)
+saveRDS(model_theme,"model_theme.RDS")
 
 fonction_totale<-function(donnees,n,colonne,sparseness){
   describe_corpus(donnees)
