@@ -5,7 +5,7 @@ library(ggplot2)
 #' @param data A dataframe containing the evaluation made by the clients
 #' @return Plot the histogram of the marks and give the numbers of clients studied
 #' @examples
-#' spell_checker(dataframe_clients)
+#' describe_corpus(dataframe_clients)
 
 describe_corpus <- function(data) {
   chain_number_doc <- paste(paste("Il y a", as.character(nrow(data))), "documents.")
