@@ -1,4 +1,4 @@
-library(SnowballC)
+#library(SnowballC)
 library(stringr)
 library(koRpus)
 library(magrittr)
@@ -16,17 +16,16 @@ library(magrittr)
 #' @examples
 #' dataframe_correction(my_data,"C:/TreeTagger","Text")
 
-lemmatizer_dataframe <- function(data,adress,column){
-  data[,column]<-sapply(data[,column],as.character)
-  stemm<-function(words){
-    t<-hunspell_stem(words,dict=dictionary("fr"))
-    for(i in c(1:length(t))){
-      effect<-(length(t[[i]])>1)
+lemmatizer_dataframe <- function(data, adress, column) {
+  data[,column] <- sapply(data[, column],as.character)
+  stemm <- function(words) {
+    t <- hunspell_stem(words, dict = dictionary("fr"))
+    for(i in c(1:length(t))) {
+      effect <- (length(t[[i]])>1)
       if (effect){
-        t[[i]]<-t[[i]][2]
-      }
-      else{
-        if(length(t[[i]])==0){
+        t[[i]] <- t[[i]][2]
+      } else {
+        if(length(t[[i]]) == 0){
           t[[i]]<-words[[i]]
         }
       }
@@ -44,9 +43,9 @@ lemmatizer_dataframe <- function(data,adress,column){
       str_replace_all("Ã","e")%>%str_replace_all("etre","")%>%str_replace_all("avoir","")
     lemme
   }
-  lemmatizeCorpus <- function(x,adress) {
+  lemmatizeCorpus <- function(x, adress) {
     print(x)
-    if (x!=""){
+    if (x!="") {
       suppressMessages(words.cc <- treetag(x, treetagger="manual", format="obj",
                                            TT.tknz=TRUE, lang="fr",encoding="utf-8",
                                            TT.options=list(path=adress, preset="fr")))
@@ -58,12 +57,11 @@ lemmatizer_dataframe <- function(data,adress,column){
       names(words_tags)<-words.lm
       lemme <- toString(paste(words.lm, collapse = " "))
       return(c(lemme,words_tags))
-    }
-    else{ 
+    } else { 
       x
     }
   }
-  data$corrige<-sapply(X=data[,column],FUN=spell_checker)
+  data$corrige <- sapply(X=data[,column],FUN=spell_checker)
   sfInit(parallel=TRUE,cpus=4,type="SOCK")
   sfLibrary(koRpus)
   sfLibrary(hunspell)
@@ -82,5 +80,3 @@ lemmatizer_dataframe <- function(data,adress,column){
   data$tags<-sapply(data$enregistrement,recupere)
   data[,-which(colnames(data)=="enregistrement")]
 }
-
-
