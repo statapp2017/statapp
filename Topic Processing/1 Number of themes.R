@@ -21,7 +21,7 @@ build_topic_models <- function(dtm, all_ks) {
 }
 
 # Visualisation
-test_convergence <- function(dtm,n) {
+test_convergence <- function(dtm, n) {
   par(mfrow = c(1,2))
   liste <- c()
   for (i in 1:n) {
@@ -43,7 +43,7 @@ coherence_tfidf <- function(model, dtm, n) { # n = number of topics in the model
   liste_score <- c()
   for (topics in 1:n) {# n -> number of topics
     col_tri <- sort(phi_t[topics,],decreasing = T)
-    #We calculate the metric over the 10 best words of the topics
+    # We calculate the metric over the 10 best words of the topics
     w <- col_tri[1:10]
     u <- names(w)
     somme <- 0
@@ -55,7 +55,7 @@ coherence_tfidf <- function(model, dtm, n) { # n = number of topics in the model
         somme <- somme+log(high_sum/low_sum)
       }
     }
-    liste_score[topics]<-somme
+    liste_score[topics] <- somme
   }
   liste_score
 }
@@ -68,32 +68,30 @@ get_best_model <- function(all_topics_models, dtm) {
     indice <- indice + 1
   }
   # calculer la moy des coherences pour le theme i
-  moyenne <- function(all_coherences,i){
+  moyenne <- function(all_coherences,i) {
     mean(all_coherences[[i]])
   }
   #liste des coherences moyennes pour tous les nombres de themes tests
-  average_coherences<-c()
+  average_coherences <- c()
   Nombre_de_k <- length(all_coherences)
   for(i in 1:Nombre_de_k) {
-    average_coherences[i]<-moyenne(all_coherences,i)
+    average_coherences[i] <- moyenne(all_coherences, i)
   }
   data <- data.frame(x=2:10, y=average_coherences)
   choix <- list(
     x = (which(average_coherences == max(average_coherences))+1),
-    y=(min(average_coherences)-1),
-    text = ~paste("Nombre de thèmes choisis :", as.character((which(average_coherences ==max(average_coherences))+1))),
-    font = list(family = 'Arial',
-                size = 16,
-                color = 'rgba(49,130,189, 1)'),
+    y =(min(average_coherences)-1),
+    text = ~paste("Nombre de thèmes choisis :", as.character((which(average_coherences == max(average_coherences))+1))),
+    font = list(family = 'Arial', size = 16, color = 'rgba(49,130,189, 1)'),
     showarrow = FALSE)
   p <- plot_ly(data, x = ~x, y = ~y,name="Cohérence tf-idf moyenne", type = 'scatter', mode = 'lines')%>%
-    add_trace(x= ~(which(average_coherences ==max(average_coherences))+1),name="Nombre de thèmes choisis", line = list(color = 'rgb(22, 96, 167)', width = 4))%>%
+    add_trace(x= ~(which(average_coherences == max(average_coherences))+1), name="Nombre de thèmes choisis", line = list(color = 'rgb(22, 96, 167)', width = 4))%>%
     layout(title = "Cohérence tf-idf moyenne en fonction du nombre de thèmes",
            xaxis = list(title = "Nombre de thèmes"),
-           yaxis = list (title = "Cohérence tf-idf moyenne"))%>%layout(annotations=choix)%>%
-    add_trace(x = ~(which(average_coherences ==max(average_coherences))+1), y = ~average_coherences[which(average_coherences ==max(average_coherences))],name="Cohérence tf-idf maximale", type = 'scatter', mode = 'markers', marker = list(color = 'rgba(67,67,67,1)', size = 8)) 
+           yaxis = list(title = "Cohérence tf-idf moyenne"))%>%layout(annotations=choix)%>%
+    add_trace(x = ~(which(average_coherences == max(average_coherences))+1), y = ~average_coherences[which(average_coherences ==max(average_coherences))],name="Cohérence tf-idf maximale", type = 'scatter', mode = 'markers', marker = list(color = 'rgba(67,67,67,1)', size = 8)) 
   print(p)
-  #BEST MODEL:
+  #BEST MODEL :
   best_model<-all_topics_models[[as.character(which(average_coherences ==max(average_coherences))+1)]]
   best_model
 }
@@ -105,8 +103,6 @@ give_best_model <- function(dtm) {
   documents <- subset(as.matrix(dtm),(rowSums(as.matrix(dtm)) >0) ==TRUE)                          
   # Nombre optimal de theme via LDA avec Gibbs                                                   
   all_topic_models <- build_topic_models(documents, all_ks)
-  best_model <- get_best_model(all_topic_models,dtm) 
-  # Output                                                                                        
-  # Modele selectionne                                                                           
-  best_model     
+  # Modele selectionne
+  get_best_model(all_topic_models, dtm) 
 }      
