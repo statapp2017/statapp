@@ -52,7 +52,7 @@ coherence_tfidf <- function(model, dtm, n) { # n = number of topics in the model
         sub_dtm <- dtm[dtm[,u[i]] > 0 & dtm[, u[j]] > 0, ]
         high_sum <- sum(dtm2[rownames(sub_dtm), u[i]]*dtm2[rownames(sub_dtm), u[j]]) + 1
         low_sum <- sum(dtm[,u[i]])
-        somme <- somme+log(high_sum/low_sum)
+        somme <- somme + log(high_sum / low_sum)
       }
     }
     liste_score[topics] <- somme
