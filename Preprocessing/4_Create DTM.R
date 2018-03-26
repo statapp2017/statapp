@@ -1,59 +1,73 @@
 library(tm)
 
-#' Delete all the numbers, spaces and ponctuations present in corpus
-#' @param corpus A collection of documents containing text (obtained with Corpus)
-#' @return A new corpus without the numbers,the spaces and ponctuations
+#' Delete all the numbers, spaces and ponctuations present in corpus.
+#' 
+#' @param corpus A collection of documents containing text (obtained with Corpus).
+#' @return A new corpus without the numbers, the spaces and the ponctuations.
+#' @examples notation_harmonisation(dataframe_corrige$lemme)
 
 notation_harmonisation <- function(table_tm) {
-  corpus <- VCorpus(VectorSource(table_tm), readerControl=list(reader=readPlain, language="fr"))%>%
-    tm_map( content_transformer(removeNumbers))%>%tm_map(content_transformer(removePunctuation))%>%
+  VCorpus(VectorSource(table_tm), readerControl = list(reader = readPlain, language = "fr")) %>% 
+    tm_map(content_transformer(removeNumbers)) %>% tm_map(content_transformer(removePunctuation)) %>%
     tm_map(content_transformer(stripWhitespace))
-  corpus
 }
 
-#' Delete all the stopwords present in corpus
-#' @param corpus A collection of documents containing text (obtained with Corpus)
-#' @return A new corpus without the stopwords
+#' Delete all the stopwords present in corpus.
+#' 
+#' @param corpus A collection of documents containing text (obtained with Corpus).
+#' @return A new corpus without the stopwords.
+#' @examples delete_stopwords(notation_harmonisation(table_tm)) 
 
 delete_stopwords <- function (corpus) {
-  myStopWords <- c(stopwords("fr"))
-  tm_map(corpus, removeWords, myStopWords)
+  tm_map(corpus, removeWords, c(stopwords("fr")))
 }
 
-#' Create the Document-Term Matrix based on the given corpus. It uses the term frequency weighthing
-#' @param corpus A collection of documents containing text (obtained with Corpus)
+#' Create the Document-Term Matrix based on the given corpus, using the term frequency weighthing.
+#' 
+#' @param corpus A collection of documents containing text (obtained with Corpus).
 #' @param sparseness A numeric for the maximal allowed sparsity in the range from bigger zero to smaller one.
-#' @return The document Term Matrix corresponding to the given corpus
+#' @return The Document Term Matrix corresponding to the given corpus.
 
 creation_DTM <- function(corpus, sparseness) {
   dtm <- DocumentTermMatrix(corpus, control = list(weighting = weightTf))
-  dtm <- removeSparseTerms(dtm, sparseness)
-  dtm
+  removeSparseTerms(dtm, sparseness)
 }
 
 library(NLP)
-bigramTokenizer <-function(x){
-  unlist(lapply(ngrams(words(x), 2), paste, collapse = " "), use.names = FALSE)
+
+#' Create the bigram matrix based on a collection of words in the documents.
+#' 
+#' @param word_collection A collection of words contained in the documents (obtained with Vcorpus).
+#' @return The bigram matrix corresponding to the words in the given corpus.
+
+bigramTokenizer <- function(word_collection) {
+  unlist(lapply(ngrams(words(word_collection), 2), paste, collapse = " "), use.names = FALSE)
 }
 
-#' Given a data containing sentences in \code{column} give the Document-Term 
-#' Matrix after text transformations (spell correction, lemmatization, removal 
-#' of stopwords, ponctuations etc...)
-#' @param data A dataframe containing the sentences 
-#' @param column The column of the dataframe containing the sentences to work on
+#' Given a data containing sentences in \code{column}, give the Document-Term Matrix
+#' after text transformations (spell correction, lemmatization, removal 
+#' of stopwords, ponctuations etc...). Preprocessing of the database.
+#' 
+#' @param data A dataframe containing the sentences.
+#' @param column The column of the dataframe containing the sentences to work on.
 #' @param sparseness A numeric for the maximal allowed sparsity in the range from bigger zero to smaller one.
-#' @param adress The location of the folder containing the TreeTagger used.
-#' @return Both the document Term Matrix corresponding to the given sentences and
-#' a new dataframe containing the lemmatisation of the sentences after spell correction
+#' @param path The location of the folder containing the TreeTagger used.
+#' @return Both the Document Term Matrix corresponding to the given sentences and
+#' a new dataframe containing the lemmatisation of the sentences after spell correction.
 
-preprocess_text<-function(data, column, sparseness = 0.99, file="C:/TreeTagger") {
-  dataframe_corrige <- lemmatizer_dataframe(data, file, column)
-  table_tm <- dataframe_corrige$lemme
-  corpus <-notation_harmonisation(table_tm)%>%delete_stopwords()
+preprocess_text <- function(data, column, sparseness = 0.99, path = "C:/TreeTagger") {
+  dataframe_corrected <- lemmatizer_dataframe(data, path, column)
+  table_tm <- dataframe_corrected$lemme
+  corpus <- notation_harmonisation(table_tm) %>% delete_stopwords()
   dtm <- creation_DTM(corpus, sparseness)
   tdm <- TermDocumentMatrix(corpus, control = list(tokenize = BigramTokenizer))
-  list(dtm = dtm, dataframe_corrige = dataframe_corrige, tdm = tdm)
+  list(dtm = dtm, dataframe_corrected = dataframe_corrected, tdm = tdm)
 }
+
+#' 
+#' 
+#' @param data A dataframe containing the sentences.
+#' @return 
 
 get_all_tags <- function(data) {
   tags <- c()
