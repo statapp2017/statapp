@@ -2,8 +2,8 @@ library(ggplot2)
 
 #' Give the distribution of the marks given by the clients and the numbers of clients studied.
 #' 
-#' @param data A dataframe containing the evaluation made by the clients
-#' @return Plot the histogram of the marks and give the numbers of clients studied
+#' @param data A dataframe containing the evaluation made by the clients.
+#' @return Plot the histogram of the marks and give the numbers of clients studied.
 #' @examples
 #' describe_corpus(dataframe_clients)
 
