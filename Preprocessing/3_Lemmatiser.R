@@ -18,18 +18,18 @@ library(magrittr)
 lemmatizer_dataframe <- function(data, path, column) {
   data[, column] <- sapply(data[, column], as.character)
   stemm <- function(words) {
-    t <- hunspell_stem(words, dict = dictionary("fr"))
-    for(i in c(1:length(t))) {
-      effect <- (length(t[[i]]) > 1)
+    valid_stem <- hunspell_stem(words, dict = dictionary("fr"))
+    for(i in c(1:length(valid_stem))) {
+      effect <- (length(valid_stem[[i]]) > 1)
       if (effect) {
-        t[[i]] <- t[[i]][2]
+        valid_stem[[i]] <- valid_stem[[i]][2]
       } else {
-        if(length(t[[i]]) == 0) {
-          t[[i]] <- words[[i]]
+        if(length(valid_stem[[i]]) == 0) {
+          valid_stem[[i]] <- words[[i]]
         }
       }
     }
-    t
+    valid_stem
   }
   # Remove accents and special characters.
   handle_accent <- function(lemme){
