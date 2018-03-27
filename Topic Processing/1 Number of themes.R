@@ -3,11 +3,11 @@ library(plotly)
 library(topicmodels) 
 library(magrittr)
 
-## TROUVER LE NOMBRE OPTIMAL DE THEMES: k ##
-# Construction des modeles pour toutes les valeurs de k que l'on veut tester, par la methode de Gibbs
-# all.k : vecteur representant les valeurs des nombres de themes a tester 
-# dtm_in : matrice en format Document-Terme
+## FIND THE OPTIMAL NUMBER OF TOPICS: k ##
 
+# Get the list of all the topic models we want to test (one for each value of k we want to test) using Gibbs sampling
+# all_ks : vector of all the values of k (number of topics) we will test
+# dtm_in : a document-term format matrix
 build_topic_models <- function(dtm, all_ks) { 
   models <- list()
   burnin <- 1500
@@ -20,27 +20,15 @@ build_topic_models <- function(dtm, all_ks) {
   return(models)
 }
 
-# Visualisation
-test_convergence <- function(dtm, n) {
-  par(mfrow = c(1,2))
-  liste <- c()
-  for (i in 1:n) {
-    liste[i] <- LDA(subset(as.matrix(dtm), (rowSums(as.matrix(dtm)) > 0) == TRUE), k = 5, method = "Gibbs", 
-                    control = list(burnin = 500, thin = 10, iter = 1500, keep = 50))@loglikelihood
-  }
-  boxplot(liste)
-  plot(liste, ylim = c(min(liste) - 10, max(liste) + 10))
-  sd(liste)
-}
-
-#test_convergence(dtm_ep, 100)
-
-coherence_tfidf <- function(model, dtm, n) {# n = number of topics in the model considered
+# metric to assess the quality of a topic
+# model = a given topic model 
+# n = number of topics in the topic model considered
+coherence_tfidf <- function(model, dtm, n) {
   dtm2 <- as.matrix(weightSMART(dtm, spec = "atn"))
   dtm <- as.matrix(dtm)
   phi_t <- posterior(model)$terms %>% as.matrix
   liste_score <- c()
-  for (topics in 1:n) {# n -> number of topics
+  for (topics in 1:n) {
     col_tri <- sort(phi_t[topics, ], decreasing = T)
     # We calculate the metric over the 10 best words of the topics
     w <- col_tri[1:10]
@@ -59,6 +47,8 @@ coherence_tfidf <- function(model, dtm, n) {# n = number of topics in the model 
   liste_score
 }
 
+# get the topic model whose topics maximize the average coherence tf-idf
+# all_topics_models = list of all topics models 
 get_best_model <- function(all_topics_models, dtm) {
   all_coherences <- list()
   indice <- 1
@@ -66,15 +56,15 @@ get_best_model <- function(all_topics_models, dtm) {
     all_coherences[[indice]] <- coherence_tfidf(model,dtm,indice+1)
     indice <- indice + 1
   }
-  # calculer la moy des coherences pour le theme i
-  moyenne <- function(all_coherences,i) {
+  # get the average coherence for the i-th topic model
+  average <- function(all_coherences,i) {
     mean(all_coherences[[i]])
   }
-  #liste des coherences moyennes pour tous les nombres de themes tests
+  #list of average tf-idf coherence for all numbers of topics tested
   average_coherences <- c()
-  Nombre_de_k <- length(all_coherences)
-  for(i in 1:Nombre_de_k) {
-    average_coherences[i] <- moyenne(all_coherences, i)
+  Number_of_k <- length(all_coherences)
+  for(i in 1:Number_of_k) {
+    average_coherences[i] <- average(all_coherences, i)
   }
   data <- data.frame(x = 2:10, y=average_coherences)
   choice <- list(
@@ -97,6 +87,7 @@ get_best_model <- function(all_topics_models, dtm) {
 give_best_model <- function(dtm) {                                                                
   # Number of tested topics                                                              
   all_ks <- seq(2, 10, 1)                                                                        
+  # Matrix whose documents (lines) have at least one element (column)
   # Matrice dont les documents (lignes) contiennent au moins un terme (colonne)                  
   documents <- subset(as.matrix(dtm), (rowSums(as.matrix(dtm)) > 0) == TRUE)                          
   # Best number of topics via LDA with Gibbs                                                   

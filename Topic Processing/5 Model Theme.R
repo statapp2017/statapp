@@ -16,7 +16,7 @@ give_theme <- function(dtm) {
   phi_t <- posterior(best_model)$terms %>% as.matrix  
   # Frequency of topics
   topic_freqs <- sort(table(unlist(document_topic_assignments$topic)), decreasing = T) 
-  # MDS afin d'analyser la distance entre les themes                                              
+  # MDS to analyse the distance beetween each topic                                   
   #topic_dist <- dist_topic (phi_t)                                                              
   #Sur le graphique sont affiches les numeros designant chaque theme,                            
   #les themes devant etre interpretes avec la figure obtenue avec la fonction caracterise       

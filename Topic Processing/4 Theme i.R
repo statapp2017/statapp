@@ -2,8 +2,10 @@ library(plotly)
 library(ggplot2)
 
 ## ANALYSE THEMATIQUE ##
-# Carateriser le i-eme theme
-caracterise <- function(phi_t, topics_freqs, donnees) {
+# Characterize the i-th topic
+# topics_freq = table of frenquency of topics by documents
+# imput_data = the data frame containing the verbatims
+caracterise <- function(phi_t, topics_freqs, imput_data) {
   freq <- as.matrix(topics_freqs)
   freq2 <- as.data.frame(freq)
   freq2$theme <- paste("Thème", rownames(freq2))
@@ -19,21 +21,21 @@ caracterise <- function(phi_t, topics_freqs, donnees) {
   }
   col[length(col) + 1] <- "nom"
   colnames(df) <- col
-  a_garder <- c()
-  tags <- get_all_tags(donnees)
-  a_eliminer <- tags[tags$tags %in% c("ADJ", "KON", "PRP", "PUN", "DET", "PRO", "ADV", "NUM"), 1]
-  df <- df[!df$name %in% a_eliminer, ]
+  to_keep <- c()
+  tags <- get_all_tags(imput_data)
+  to_delete <- tags[tags$tags %in% c("ADJ", "KON", "PRP", "PUN", "DET", "PRO", "ADV", "NUM"), 1]
+  df <- df[!df$name %in% to_delete, ]
   for (i in (1:(ncol(df)-1))) {
     df <- df[order(df[, i], decreasing = T), ]
     df <- df[!rownames(df)%in%hash_valence$x, ]
-    a_garder <- c(a_garder, c(rownames(df[1:10, ])))
+    to_keep <- c(to_keep, c(rownames(df[1:10, ])))
     ref <- df[, i]
     for (j in 1:10) {
       df$theme[j] <- paste("Thème", as.character(i))
       df$valeur[j] <- ref[j]
     }
   }
-  df <- df[a_garder, ]
+  df <- df[to_keep, ]
   df <- df[order(df[, which(colnames(df) == "theme")], decreasing = F), ]
   df$name <- factor(df$name, levels = df$name)
   p <- ggplot(data = df, aes(x = name, y = valeur, color = theme)) + geom_bar(stat = "identity") + 

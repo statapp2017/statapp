@@ -2,6 +2,7 @@ library(RColorBrewer)
 library(Rtsne)
 
 ## THEMATIC ANALYSIS ##
+#phi = distribution of words by docuements (matrix)
 try_tsne <- function(phi) {
   train <- as.data.frame(t(phi))
   Labels <- c()
