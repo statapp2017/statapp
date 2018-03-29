@@ -2,6 +2,7 @@ library(stringr)
 library(koRpus)
 library(magrittr)
 library(hunspell)
+
 #' Transform all the sentences contained in a given column of a dataframe. 
 #' See lemmatizer for the precise transformations.
 #' 
@@ -15,22 +16,22 @@ library(hunspell)
 #' @examples
 #' lemmatizer_dataframe(my_data, "C:/TreeTagger", "Text")
 
-lemmatizer_dataframe <- function(data,dico,column){
-  data[,column]<-sapply(data[,column],as.character)
+lemmatizer_dataframe <- function(data, dico, column) {
+  data[, column] <- sapply(data[, column], as.character)
   lemmatizeCorpus <- function(x) {
-    list_words <- tokenize_words(as.character(gsub(" \n", ". ",x)), lowercase = TRUE)[[1]] 
+    list_words <- tokenize_words(as.character(gsub(" \n", ". ", x)), lowercase = TRUE)[[1]] 
     for (i in (1:length(list_words))){
-      if (!identical(is.na(list_words[i]=="NA"),logical(0))){
-            if (list_words[i] %in% dico[,"mots"]){
-            list_words[i]<-dico[dico[,"mots"]==list_words[i],"stem"]
-              }
-          }
+      if (!identical(is.na(list_words[i] == "NA"),logical(0))) {
+        if (list_words[i] %in% dico[, "mots"]) {
+          list_words[i] <- dico[dico[, "mots"] == list_words[i], "stem"]
+        }
+      }
     }
     lemme <- toString(paste(list_words, collapse = " "))
     lemme
   }
-  for (i in (1:nrow(data))){
-      data$lemme[i]<-lemmatizeCorpus(str_replace_all(data$corrige[i],"'"," "))
+  for (i in (1:nrow(data))) {
+    data$lemme[i] <- lemmatizeCorpus(str_replace_all(data$corrige[i],"'"," "))
   }
   data
 }
