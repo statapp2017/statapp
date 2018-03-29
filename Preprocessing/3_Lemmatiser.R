@@ -1,7 +1,7 @@
 library(stringr)
 library(koRpus)
 library(magrittr)
-
+library(hunspell)
 #' Transform all the sentences contained in a given column of a dataframe. 
 #' See lemmatizer for the precise transformations.
 #' 
@@ -15,67 +15,22 @@ library(magrittr)
 #' @examples
 #' lemmatizer_dataframe(my_data, "C:/TreeTagger", "Text")
 
-lemmatizer_dataframe <- function(data, path, column) {
-  data[, column] <- sapply(data[, column], as.character)
-  stemm <- function(words) {
-    valid_stem <- hunspell_stem(words, dict = dictionary("fr"))
-    for(i in c(1:length(valid_stem))) {
-      effect <- (length(valid_stem[[i]]) > 1)
-      if (effect) {
-        valid_stem[[i]] <- valid_stem[[i]][2]
-      } else {
-        if(length(valid_stem[[i]]) == 0) {
-          valid_stem[[i]] <- words[[i]]
-        }
-      }
+lemmatizer_dataframe <- function(data,dico,column){
+  data[,column]<-sapply(data[,column],as.character)
+  lemmatizeCorpus <- function(x) {
+    list_words <- tokenize_words(as.character(gsub(" \n", ". ",x)), lowercase = TRUE)[[1]] 
+    for (i in (1:length(list_words))){
+      if (!identical(is.na(list_words[i]=="NA"),logical(0))){
+            if (list_words[i] %in% dico[,"mots"]){
+            list_words[i]<-dico[dico[,"mots"]==list_words[i],"stem"]
+              }
+          }
     }
-    valid_stem
-  }
-  # Remove accents and special characters.
-  handle_accent <- function(lemme){
-    lemme <- str_replace_all(lemme, "ê", "e")%>%str_replace_all("@card@" ,"")%>%
-      str_replace_all("\"","")%>%str_replace_all("\ \"","")%>%str_replace_all("Ã®","i")%>%
-      str_replace_all("suivre|Ãªtre","etre")%>%
-      str_replace_all("Ã©","e")%>%str_replace_all("Ã¨","e")%>%str_replace_all("Ã","a")%>%
-      str_replace_all( "Ãª","e")%>%str_replace_all("Ã§","c")%>%str_replace_all("Å","oe")%>%
-      str_replace_all("Ã¹","u")%>%str_replace_all("Ã«","e")%>%str_replace_all("[EÉÈÊËéèêë]", "e")%>%
-      str_replace_all("a©","e")%>%str_replace_all("a¨","e")%>%str_replace_all( "aª","e")%>%
-      str_replace_all("Ã","e")%>%str_replace_all("etre","")%>%str_replace_all("avoir","")
+    lemme <- toString(paste(list_words, collapse = " "))
     lemme
   }
-  lemmatizeCorpus <- function(x, path) {
-    print(x)
-    if (x != "") {
-      suppressMessages(words.cc <- treetag(x, treetagger = "manual", format = "obj",
-                                           TT.tknz = TRUE, lang = "fr", encoding = "utf-8",
-                                           TT.options = list(path = path, preset = "fr")))
-      words.lm <- ifelse(words.cc@TT.res$token != words.cc@TT.res$lemma, 
-                         ifelse(words.cc@TT.res$lemma != "<unknown>", words.cc@TT.res$lemma, stemm(words.cc@TT.res$token)),
-                         words.cc@TT.res$token)
-      words.lm <- handle_accent(words.lm)
-      words_tags <- words.cc@TT.res$tag
-      names(words_tags) <- words.lm
-      lemme <- toString(paste(words.lm, collapse = " "))
-      return(c(lemme, words_tags))
-    } else { 
-      x
-    }
+  for (i in (1:nrow(data))){
+      data$lemme[i]<-lemmatizeCorpus(data$corrige[i])
   }
-  data$corrige <- sapply(X = data[, column], FUN = spell_checker)
-  traitement <- function(x) {lemmatizeCorpus(x, path)}
-  data$enregistrement <- rep(c(), nrow(data))
-  for (i in (1:nrow(data))) {
-    data$enregistrement[[i]] <- traitement(data$corrige[i])
-  }
-  recupere2 <- function(x) {
-    x[1]
-  }
-  recupere <- function(x) {
-    x[2:length(x)]
-  }
-  for (i in 1:nrow(data)) {
-    data$lemme[i] <- recupere2(data$enregistrement[[i]])
-    data$tags[[i]] <- recupere(data$enregistrement[[i]])
-  }
-  data[, - which(colnames(data) == "enregistrement")]
+  data
 }
