@@ -62,7 +62,7 @@ preprocess_text<-function(data,column,sparseness=0.99){
   table_tm<- dataframe_corrige$lemme
   corpus <-notation_harmonisation(table_tm)%>%delete_stopwords()
   dtm <- creation_DTM(corpus,sparseness)
-  tdm <- DocumentTermMatrix(corpus, control = list(tokenize = BigramTokenizer))
+  tdm <- DocumentTermMatrix(corpus, control = list(tokenize = bigramTokenizer))
   list(dtm=dtm,dataframe_corrige=dataframe_corrige,tdm=tdm)
 }
 
