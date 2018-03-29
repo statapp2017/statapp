@@ -30,7 +30,7 @@ lemmatizer_dataframe <- function(data,dico,column){
     lemme
   }
   for (i in (1:nrow(data))){
-      data$lemme[i]<-lemmatizeCorpus(str_replace_all(data$corrige[i],"'",""))
+      data$lemme[i]<-lemmatizeCorpus(str_replace_all(data$corrige[i],"'"," "))
   }
   data
 }
