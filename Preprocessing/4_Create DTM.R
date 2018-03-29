@@ -1,4 +1,6 @@
 library(tm)
+library(magrittr)
+library(NLP)
 
 #' Delete all the numbers, spaces and ponctuations present in corpus.
 #' 
@@ -33,8 +35,6 @@ creation_DTM <- function(corpus, sparseness) {
   removeSparseTerms(dtm, sparseness)
 }
 
-library(NLP)
-
 #' Create the bigram matrix based on a collection of words in the documents.
 #' 
 #' @param word_collection A collection of words contained in the documents (obtained with Vcorpus).
@@ -55,13 +55,15 @@ bigramTokenizer <- function(word_collection) {
 #' @return Both the Document Term Matrix corresponding to the given sentences and
 #' a new dataframe containing the lemmatisation of the sentences after spell correction.
 
-preprocess_text <- function(data, column, sparseness = 0.99, path = "C:/TreeTagger") {
-  dataframe_corrected <- lemmatizer_dataframe(data, path, column)
-  table_tm <- dataframe_corrected$lemme
-  corpus <- notation_harmonisation(table_tm) %>% delete_stopwords()
-  dtm <- creation_DTM(corpus, sparseness)
-  tdm <- TermDocumentMatrix(corpus, control = list(tokenize = BigramTokenizer))
-  list(dtm = dtm, dataframe_corrected = dataframe_corrected, tdm = tdm)
+preprocess_text<-function(data,column,sparseness=0.99){
+  data$corrige<-sapply(X=data[,column],FUN=spell_checker)
+  dico<-creation_dico(data$corrige)
+  dataframe_corrige <- lemmatizer_dataframe(data,dico,column)
+  table_tm<- dataframe_corrige$lemme
+  corpus <-notation_harmonisation(table_tm)%>%delete_stopwords()
+  dtm <- creation_DTM(corpus,sparseness)
+  tdm <- DocumentTermMatrix(corpus, control = list(tokenize = BigramTokenizer))
+  list(dtm=dtm,dataframe_corrige=dataframe_corrige,tdm=tdm)
 }
 
 #' 
