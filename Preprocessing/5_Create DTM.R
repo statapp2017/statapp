@@ -78,7 +78,7 @@ get_all_tags <- function(data) {
     liste <- data$tags[i][[1]]
     for (j in 1:length(liste)) {
       try({noms[length(noms) + 1] <- names(liste)[j]
-          tags[length(tags) + 1] <- str_sub(liste[j], 1, 3)
+      tags[length(tags) + 1] <- str_sub(liste[j], 1, 3)
       })
     }
   }
