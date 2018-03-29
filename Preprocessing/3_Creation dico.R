@@ -1,3 +1,4 @@
+
 creation_dico <- function(table_tm) {
   corpus <- VCorpus(VectorSource(table_tm), readerControl=list(reader=readPlain, language="fr"))%>%
     tm_map(content_transformer(removeNumbers))%>%tm_map(content_transformer(removePunctuation))%>%
@@ -16,3 +17,4 @@ creation_dico <- function(table_tm) {
   dico$stem <- sapply(dico$mots, FUN=stemming)
   dico
 }
+
