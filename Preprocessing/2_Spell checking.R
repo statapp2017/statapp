@@ -15,7 +15,7 @@ spell_checker <- function(sentence) {
   correct_string <- ""
   for (x in list_words) {
     # Check if the spelling of the words is correct.
-    if (hunspell_check(x, dict = dictionary("fr"))|str_length(x) < 3) {
+    if (hunspell_check(x, dict = dictionary("fr"))) {
       correct_string <- paste(correct_string,x)
     } else {
       # If the spelling isn't accurate, we recover hunspell suggestions.
