@@ -15,13 +15,11 @@ visualise_LDA <- function(model, dtm) {
   theta <- model$theta # Probability that a document belongs to a topic (ok)
   doc.length <- as.data.frame(table(dtm$i))[2]$Freq # Number of words per document (ok)
   vocab <- dtm$dimnames$Terms # Words list
-  vocab[92] <- "fa"
-  vocab[93] <- "re"
+  #vocab[92] <- "fa"
+  #vocab[93] <- "re"
   term.frequency <- as.data.frame(table(dtm$j))[2]$Freq # Fréquence des mots dans tout le document"
   json <- createJSON(phi = phi, theta = theta, doc.length = doc.length, vocab = vocab, 
                      term.frequency = term.frequency)
   serVis(json, out.dir = "vis", open.browser = TRUE)
 }
-
-visualise_LDA(model_theme, dtm_ep)
 
