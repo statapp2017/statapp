@@ -1,6 +1,5 @@
 rm(list = ls())
 
-
 ### Change here ###
 setwd("/Users/okabeshu/Documents/ENSAE/StatApp") # Path of the main folder
 name_data <- "verbatims.csv"
@@ -8,7 +7,7 @@ name_data <- "verbatims.csv"
 ### Import data ###
 verbatim <- read.csv2(name_data, encoding = "latin1")
 epargne <- subset(verbatim, REPRISE_ACTIVITE == "Epargne")
-dico <- read.table("liste_francais.txt",encoding = "Latin1")
+dico <- read.table("liste_francais.txt", encoding = "Latin1")
 
 ### Import functions ###
 # Preprocessing
