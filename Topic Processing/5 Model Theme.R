@@ -24,5 +24,3 @@ give_theme <- function(dtm) {
               models = best_model)) #document_topic_assignements = document_topic_assignments                                                                                     #
 }
 
-model_theme <- give_theme(dtm_ep)
-#saveRDS(model_theme,"model_theme.RDS")
