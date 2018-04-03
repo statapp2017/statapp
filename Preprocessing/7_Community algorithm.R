@@ -25,8 +25,7 @@ communaute <- function(graph, freq_var, suppr) {
     group_members$communaute[i] <- com_m[[i]]
   }
   mst <- delete.vertices(mst, V(mst)[name %in% suppr])
-  mst <- delete.vertices(mst, V(mst)[name %in% c("etre","card","avoir")])
-  titre <- "Détection de communauté basée sur la modularité fastgreedy"
+  titre <- "Detection de communaute basee sur la modularite fastgreedy"
   multiplicateur <- 20 / log(max(freq_var))
   plot(mst, layout = layout.fruchterman.reingold, vertex.color = com_m, vertex.label = V(mst)$id, #name
        vertex.size = log(freq_var) * multiplicateur, edge.color = "grey55", edge.arrow.size = 1, 
