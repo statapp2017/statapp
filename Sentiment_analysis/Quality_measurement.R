@@ -2,6 +2,13 @@ library(ggplot2)
 library(magrittr)
 library(pROC)
 
+#' Gives the multiclass.roc associated with our model and plot the error 
+#' of the model
+#' @param preidction The dataframe of probability associating each document 
+#' to a class of sentiment
+#' @param vecteur_note The real class of the documents
+#' @param nom_colonnes Les features à garder dans la nouvelle dtm
+
 measure_quality<-function(prediction,vecteur_note){
   pred<-vector("list",nrow(prediction))
   for (i in 1:nrow(prediction)){
@@ -14,6 +21,11 @@ measure_quality<-function(prediction,vecteur_note){
   graph<-ggplot(graph_pred, aes(prediction, ..count..)) + geom_bar(aes(fill = vecteur_note), position = "dodge")+ labs(title="Erreur algorithme XGBoost", x= "Categorie predite", y ="Nombre")+scale_fill_discrete(name="Categorie\nReelle")
   print(graph)
 }
+
+
+#' Plot the confusion_matrix of the models
+#' @param preidction The vecotr of predicted class
+#' @param vecteur_note The real class of the documents
 
 plot_confusion_matrix<-function(pred,vecteur_note){
   contingency<-table(pred,vecteur_note)
