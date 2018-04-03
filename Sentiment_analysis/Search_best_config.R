@@ -2,6 +2,14 @@ library(magrittr)
 library(xgboost)
 library(data.table)
 
+#' Gives the best parameters to use for our problem based on the mlogloss metric 
+#' @param donnees The original verbatims with the marks associated 
+#' @param number_class The number of class to split the marks in 
+#' @param dtm_ep The Document Term Matrix obtained after preprocessing
+#' with the verbatims contained in \code{donnees}
+#' @param colonnes The column containing the marks given by the clients
+#' @return The best parameters to use for our problem
+
 search_best_config<-function(donnees,number_class,dtm_ep,colonne){
   nom_colonnes<-c(dtm_ep$dimnames$Terms,"categorie")
   dtm_ep<-as.data.frame(as.matrix(dtm_ep))%>%cbind(donnees[,colonne])
