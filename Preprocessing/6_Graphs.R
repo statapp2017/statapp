@@ -18,9 +18,9 @@ compar <- function(data, column, dtm) {
                                            readerControl = list(reader = readPlain, language = "fr")), 
                                     control = list(weighting = weightTf)))
   print(paste("Il y a", as.character(nombre), "mots avant la lemmatisation."))
-  barplot(words_preprocessing, xlab = "Nombre de termes avant le préprocessing.", col = 'blue')
+  barplot(words_preprocessing, xlab = "Nombre de termes avant le preprocessing.", col = 'blue')
   # After the lemmatisation
-  print(paste("Il y a", as.character(ncol(dtm)), "mots après la lemmatisation."))
+  print(paste("Il y a", as.character(ncol(dtm)), "mots apres la lemmatisation."))
   barplot(apply(dtm, 1, sum), xlab = "Nombre de termes dans la DTM", col = 'blue')
 }
 
@@ -43,7 +43,6 @@ freq_word <- function(dtm_in) {
 
 nuage_de_mots <- function(dtm) {
   data_freq <- freq_word(dtm)
-  data_freq <- data_freq[!data_freq$word %in% c("avoir", "etre", "card"), ]
   couleur <- brewer.pal(n = 8, name = "Dark2")
   wordcloud(data_freq$word, data_freq$freq, scale = c(3, 2), min.freq = 20, max.words = 100, random.order = F, colors = couleur)
 }
