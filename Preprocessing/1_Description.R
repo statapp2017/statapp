@@ -16,6 +16,6 @@ describe_corpus <- function(data) {
     stat_count(aes(label=..count..), vjust = 1.5, geom = "text", position = "identity", color = "white") +
     stat_count(aes(label = paste(sprintf("%.02f", ..count../sum(..count..)*100), "%")), 
                geom = "text", vjust = 3.5, color = "white") +
-    labs(title = "Histogramme des notes données par les clients", x = "Notes attribuées", y = "Effectifs") +
+    labs(title = "Histogramme des notes donnees par les clients", x = "Notes attribuees", y = "Effectifs") +
     theme(plot.title = element_text(colour = "blue", size = 20, hjust = 0.5))  
 }
