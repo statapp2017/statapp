@@ -1,6 +1,12 @@
 library(xgboost)
 library(tm)
 
+#' Returns a Document Term Matrix with the features used in the original model
+#' @param dtm  The dataframe of the Document Term Matrix to transform
+#' @param bigrams The dataframe of the bigrams Document Term Matrix 
+#' @param nom_colonnes Les features à garder dans la nouvelle dtm
+#' @return A new Document Term Matrix with the right features 
+
 gestion_dtm<-function(dtm,bigrams,nom_colonnes){
   dtm<-as.data.frame(as.matrix(dtm))
   bigrams<-as.data.frame(as.matrix(bigrams))
@@ -21,6 +27,14 @@ gestion_dtm<-function(dtm,bigrams,nom_colonnes){
   dtm
 }
 
+#' Gives a list of number_models models and the place of their training observations
+#' @param params The parameter to train the model with (gives the best mlogloss obtained 
+#' obtained with search_best_config)
+#' @param train_test The dataframe containing the dtm to train the models on
+#' @param number_models The number of models to create
+#' @param train_test_split The percentage of the database to keep to train the model
+#' @return A list of xgb.train models and the place of the observations used to created them
+
 train_model_xgboost<-function(params,train_test,dvalid,number_models,train_test_split){
   eta<-params$eta
   params$objective<-"multi:softprob"
@@ -38,6 +52,20 @@ train_model_xgboost<-function(params,train_test,dvalid,number_models,train_test_
   }
   list(models=models,entrainement=division)
 }
+
+#' Gives a list of number_models models and the place of their training observations
+#' @param params The parameter to train the model with (gives the best mlogloss obtained 
+#' obtained with search_best_config)
+#' @param dtm_ep The Document Term Matrix used to create the models
+#' @param data The original data containing the marks
+#' @param number_class The number of class to split the marks in
+#' @param number_models The number of models to create
+#' @param train_test_split The percentage of the database to keep to train the model
+#' @param train_valid_split The percentage of the database to keep to train the different models. 
+#' The rest will be used to test the models.
+#' @return A list containing the xgb.train models, the data used to test it, the place of the subsample 
+#' used to train the different models, the real marks of the test database, the database used to train
+#' the differents models, and the names of the features used in the models
 
 models_xgboost<-function(params,dtm_ep,data,column,number_class,number_models,train_test_split=.8,train_valid_split=.8){
   params$num_class<-number_class
