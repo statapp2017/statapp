@@ -16,7 +16,7 @@ try_tsne<-function(phi){
   names(colors) <- lab
   legends<-c()
   for (i in 1:length(unique(Labels))){
-    legends[i]<-paste("Thème",as.character(lab[i]))
+    legends[i]<-paste("Theme",as.character(lab[i]))
   }
   tsne <- Rtsne(train, dims = 2, perplexity=30, verbose=TRUE, max_iter = 500,check_duplicates = FALSE)
   plot(tsne$Y, t='p',pch=21, main="Tsne mots",col=colors[Labels],bg=colors[Labels],xlab="Axe 1",ylab="Axe 2")
