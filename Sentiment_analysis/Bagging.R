@@ -1,6 +1,15 @@
 library(xgboost)
 library(stats)
 
+#' Gives the prediction of a list of models as the mean of the probabilty  
+#' predicted by the different models
+#' @param dtm_newdata The dataframe of the Document Term Matrix obtained on 
+#' the new data
+#' @param list_models The list of models. A list of xgb.train obtained with 
+#' models_xgboost
+#' @param number_class The number of class the marks are divided in. 
+#' @return A new dataframe with the average prediction of the models
+
 bagging_xgboost_prediction<-function(dtm_newdata,list_models,number_class){
   model<-list_models[[1]]
   prediction<-predict(model,dtm_newdata,reshape=TRUE)
@@ -15,6 +24,14 @@ bagging_xgboost_prediction<-function(dtm_newdata,list_models,number_class){
   }
   prediction[,(ncol(prediction)-number_class+1):ncol(prediction)]
 }
+
+#' Gives the importance of a list of models as the mean of the importance
+#' given by the different models
+#' @param dtm_ep The dataframe of the Document Term Matrix obtained on 
+#' the original database.
+#' @param list_models The list of models. A list of xgb.train obtained with 
+#' models_xgboost
+#' @return A new dataframe with the average features importance of the models
 
 bagging_xgboost_importance<-function(list_models,dtm_ep){
   mod<-list_models$models
@@ -32,6 +49,11 @@ bagging_xgboost_importance<-function(list_models,dtm_ep){
   importance_bagging$Frequency<-rowMeans(subset(importance,select=colnames(importance)[str_detect(colnames(importance),"Frequency")]))
   importance_bagging
 }
+
+#' Gives the label predicted based on the probabilty in prediction
+#' @param prediction A dataframe containing n columns where n is the number of 
+#' classes with the probability of each document to be in a class
+#' @return A list given the label predicted of each observation
 
 make_prediction<-function(prediction){
   pred<-vector("list",nrow(prediction))
