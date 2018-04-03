@@ -7,14 +7,13 @@ library(hunspell)
 #' See lemmatizer for the precise transformations.
 #' 
 #' @param data The dataframe containing the sentences.
-#' @param path The location of the folder containing the TreeTagger used.
+#' @param dico A dictionnary created with creation_dico which contains all
+#' the words of the database and their stem.
 #' @param column The column of \code{data} containing the sentences.
-#' @return A new dataframe with the same columns as \code{data} but with two 
-#' new columns \code{lemme} containing all the sentences lemmatized and 
-#' \code{tag} containing all the grammatical class of the words in the sentences
-#' in column.
+#' @return A new dataframe with the same columns as \code{data} but with a
+#' new column \code{lemme} containing all the sentences lemmatized 
 #' @examples
-#' lemmatizer_dataframe(my_data, "C:/TreeTagger", "Text")
+#' lemmatizer_dataframe(my_data, dictionnary, "Text")
 
 lemmatizer_dataframe <- function(data, dico, column) {
   data[, column] <- sapply(data[, column], as.character)
