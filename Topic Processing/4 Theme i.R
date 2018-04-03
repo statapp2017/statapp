@@ -22,7 +22,7 @@ caracterise<-function(phi_t,a_eliminer){
     a_garder<-c(a_garder,c(rownames(df[1:10,])))
     ref <- df[,i]
     for (j in 1:10){
-    df$theme[j]<-paste("Thème",as.character(i))
+    df$theme[j]<-paste("Theme",as.character(i))
     df$valeur[j]<-ref[j]
     }
   }
@@ -30,7 +30,7 @@ caracterise<-function(phi_t,a_eliminer){
   df <- df[order(df[,which(colnames(df)=="theme")],decreasing=F),]
   df$nom<-factor(df$nom, levels=df$nom)
   p<-ggplot(data=df,aes(x=nom,y=valeur,color=theme)) +
-    geom_bar(stat="identity")+labs(title="Mots illustrant les différents thèmes",
+    geom_bar(stat="identity")+labs(title="Mots illustrant les différents themes",
                                   x ="Mots", y = "Probabilité")+theme(axis.text.x = element_text(angle=45))
   p1<-ggplotly(p)
   print(p1)
