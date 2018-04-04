@@ -2,11 +2,15 @@ rm(list = ls())
 
 ### Change here ###
 setwd("/Users/okabeshu/Documents/ENSAE/StatApp") # Path of the main folder
+
 name_data <- "verbatims.csv"
 
 ### Import data ###
 verbatim <- read.csv2(name_data, encoding = "latin1")
-epargne <- subset(verbatim, REPRISE_ACTIVITE == "Prévoyance")
+epargne <- subset(verbatim, REPRISE_ACTIVITE == "Epargne")
+prevoyance<-subset(verbatim, REPRISE_ACTIVITE == "Prévoyance")
+nrow(epargne)
+nrow(prevoyance)
 dico <- read.table("liste_francais.txt", encoding = "Latin1")
 model_theme <- readRDS("model_theme.RDS")
 parameter<-read.csv2("logloss.csv")
@@ -36,6 +40,7 @@ source("Topic Processing/5 Model Theme.R")
 source("Topic Processing/7 Visualisation.R")
 
 #Sentiment analysis
+source("Analyse_new_verbatim.R")
 source("Sentiment_analysis/Bagging.R")
 source("Sentiment_analysis/Models_xgboost.R")
 source("Sentiment_analysis/Quality_measurement.R")
@@ -43,9 +48,9 @@ source("Sentiment_analysis/Sentiment_visualisation.R")
 
 ### Test ###
 # Preprocessing
-describe_corpus(epargne)
-par(mfrow = c(2,1), bg="beige")
-compar(epargne, "raisons_recommandation", dtm)
+describe_corpus(verbatim)
+par(mfrow = c(1,1), bg="beige")
+compar(prevoyance, "raisons_recommandation", dtm)
 
 # Create DTM
 #dtm_test <- preprocess_text(epargne, "raisons_recommandation")
@@ -54,8 +59,10 @@ compar(epargne, "raisons_recommandation", dtm)
 # Topic Processing
 model_theme <- give_theme(dtm)
 visualise_LDA(model_theme, dtm) # Visualisation
-
-model_sentiment<-models_xgboost(params,dtm_tot,epargne,colonne,number_class,number_models)
+nuage_de_mots(dtm)
+try_tsne(model_theme$phi)
+communaute_freq(80,dtm)
+model_sentiment<-models_xgboost(params,dtm_tot,prevoyance,colonne,number_class,number_models)
 nom_colonnes<-model_sentiment$nom_colonne
 dvalid<-model_sentiment$dvalid
 prediction<-bagging_xgboost_prediction(as.matrix(dvalid[,2:ncol(dvalid)]),model_sentiment$models,number_class)
@@ -63,6 +70,7 @@ plot_confusion_matrix(make_prediction(prediction),model_sentiment$notes)
 measure_quality(prediction,model_sentiment$notes)
 analyse_new_verbatim(epargne[3:5,"raisons_recommandation"])
 importance<-bagging_xgboost_importance(model_sentiment,dtm_tot)
+sentiments_results_visualisation(epargne[3:5,"raisons_recommandation"],model_sentiment)
 xgb.ggplot.importance(as.data.table(importance),top_n = 50)
 a_eliminer<-importance$Feature[1:50]
 caracterise(model_theme$phi_t,a_eliminer)
