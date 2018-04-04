@@ -10,7 +10,7 @@ library(magrittr)
 # dtm_in : a document-term format matrix
 build_topic_models <- function(dtm, all_ks) { 
   models <- list()
-  burnin <- 1500
+  burnin <- 500
   iter <- 6000
   keep <- 100 
   seed <- 1
