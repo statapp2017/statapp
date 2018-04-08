@@ -5,7 +5,7 @@
 #' @examples
 
 creation_dico <- function(table_tm) {
-  # Suppress numbers, punctuation, etc from table_tm.
+  # Suppress numbers, punctuations and spaces from table_tm.
   corpus <- VCorpus(VectorSource(table_tm), readerControl = list(reader = readPlain, language="fr")) %>%
     tm_map(content_transformer(removeNumbers)) %>% tm_map(content_transformer(removePunctuation)) %>%
     tm_map(content_transformer(stripWhitespace))
