@@ -4,7 +4,11 @@ library(topicmodels)
 library(ggplot2)
 library(magrittr)
 
-## THEMATIC ANALYSIS ##
+#' Gives
+#' 
+#' @param dtm A document-term format matrix
+#' @return A list
+
 give_theme <- function(dtm) {
   # List of topics attributable to each document
   best_model <- give_best_model(dtm)
@@ -18,8 +22,8 @@ give_theme <- function(dtm) {
   topic_freqs <- sort(table(unlist(document_topic_assignments$topic)), decreasing = T) 
   # MDS to analyse the distance beetween each topic                                   
   #topic_dist <- dist_topic (phi_t)                                                              
-  #Sur le graphique sont affiches les numeros designant chaque theme,                            
-  #les themes devant etre interpretes avec la figure obtenue avec la fonction caracterise       
+  # On the graph are displayed the numbers designating each topic,                          
+  # the topics must be interpreted with the figure obtained with the function caracterise       
   return(list(topics_freq = topic_freqs, phi_t = phi_t, theta = pos,
               models = best_model)) #document_topic_assignements = document_topic_assignments                                                                                     #
 }
