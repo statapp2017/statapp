@@ -8,8 +8,8 @@ library(magrittr)
 #' Gets the list of all the topic models we want to test (one for each value of k we want to test) 
 #' using Gibbs sampling.
 #' 
-#' @param dtm a document-term format matrix
-#' @param all_ks vector of all the values of k (number of topics) we will test
+#' @param dtm A document-term format matrix
+#' @param all_ks A vector of all the values of k (number of topics) we will test
 #' @return A list of all the topic models
 
 build_topic_models <- function(dtm, all_ks) { 
