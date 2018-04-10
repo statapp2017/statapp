@@ -1,22 +1,25 @@
 library(plotly)
 library(ggplot2)
 
-## THEMATIC ANALYSIS ##
-# Characteristics of the model
-#best = the topic model chosen previously
+#' Characteristics of the model
+#' 
+#' @param best the topic model previously chosen
+
 get_topic_assignments <- function(best) {
   gammaDF <- as.data.frame(best@gamma)
   names(gammaDF) <- 1:length(names(gammaDF))
   as.data.frame(cbind(document = row.names(gammaDF), topic = apply(gammaDF, 1, function(x) names(gammaDF)[which(x == max(x))])))
 }
 
-#phi = distribution of words by docuements (matrix)
+
+#' @param phi distribution of words by docuements (matrix)
+
 dist_topic <- function(phi) {
   bp <- ggplot(diamonds, aes(clarity, fill = cut)) + geom_bar()
   dist_mat <- dist(phi)
   fit <- cmdscale(dist_mat, eig = TRUE, k = (nrow(phi)-1))
   points <- data.frame(x = fit$points[, 1], y = fit$points[, 2])
-  inertie_expl <- rep(0, times = (nrow(phi)-1))
+  inertie_expl <- rep(0, times = (nrow(phi) - 1))
   for (k in 1:(nrow(phi)-1)) {
     clus <- kmeans(points, centers = k, nstart = 5)
     inertie_expl[k] <- clus$betweenss / clus$totss
