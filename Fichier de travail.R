@@ -46,24 +46,23 @@ source("Sentiment_analysis/Models_xgboost.R")
 source("Sentiment_analysis/Quality_measurement.R")
 source("Sentiment_analysis/Sentiment_visualisation.R")
 
-### Test ###
-# Preprocessing
+### Preprocessing ###
 describe_corpus(verbatim)
-par(mfrow = c(1, 1), bg = "beige")
+#par(mfrow = c(1, 1), bg = "beige")
 compar(prevoyance, colonne_note, dtm)
 
 # Create DTM
-#dtm_test <- preprocess_text(epargne, "raisons_recommandation")
+#dtm_test <- preprocess_text(epargne, colonne_note)
 #dtm <- dtm_test$dtm
 
-# Topic Processing
+### Topic Processing ###
 model_theme <- give_theme(dtm) # Compute the model with LDA
 visualise_LDA(model_theme, dtm) # Visualisation
 nuage_de_mots(dtm) # Plot the wordcloud
-try_tsne(model_theme$phi)
+try_tsne(model_theme$phi) # Plot the t-SNE visualisation
 communaute_freq(80, dtm) # Plot the community of words
 
-# Sentiment Analysis
+### Sentiment Analysis ###
 model_sentiment <- models_xgboost(params,dtm_tot,prevoyance,colonne,number_class,number_models)
 nom_colonnes <- model_sentiment$nom_colonne
 dvalid <- model_sentiment$dvalid
@@ -73,7 +72,7 @@ measure_quality(prediction,model_sentiment$notes)
 
 analyse_new_verbatim(epargne[3:5, colonne_note])
 importance <- bagging_xgboost_importance(model_sentiment, dtm_tot)
-sentiments_results_visualisation(epargne[3:5, colonne_note], model_sentiment)
+sentiments_results_visualisation(epargne[3:5, colonne_note], model_sentiment) # Visualisation
 xgb.ggplot.importance(as.data.table(importance), top_n = 50)
 a_eliminer <- importance$Feature[1:50]
 caracterise(model_theme$phi_t, a_eliminer)
