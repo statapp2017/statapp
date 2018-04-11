@@ -9,7 +9,7 @@ library(ggplot2)
 
 describe_corpus <- function(data) {
   # Display the number of documents
-  print(paste("Il y a", as.character(nrow(epargne)), "documents."))
+  print(paste("Il y a", as.character(nrow(data)), "documents."))
   # Display the distribution of the marks
   qhist <- qplot(factor(recommandation_SGK), data = data, geom = "bar")
   qhist + geom_bar(fill = "steelblue") + 
