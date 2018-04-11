@@ -69,7 +69,7 @@ preprocess_text <- function(data, column, sparseness = 0.99) {
   table_tm <- dataframe_corrige$lemme
   corpus <- notation_harmonisation(table_tm) %>% delete_stopwords() # Suppress useless elements
   dtm <- creation_DTM(corpus, sparseness) # Creation of the Document Term Matrix
-  tdm <- DocumentTermMatrix(corpus, control = list(tokenize = BigramTokenizer)) # DTM for bigrams
-  tdm <- removeSparseTerms(tdm, 0.8)
+  tdm <- DocumentTermMatrix(corpus, control = list(tokenize = bigramTokenizer)) # DTM for bigrams
+  tdm <- removeSparseTerms(tdm, 0.8) # The minimum proportion of documents in which the words should appear
   list(dtm = dtm, dataframe_corrige = dataframe_corrige, tdm = tdm)
 }
