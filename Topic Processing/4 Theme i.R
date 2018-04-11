@@ -19,8 +19,8 @@ caracterise <- function(phi_t, a_eliminer) {
   df <- df[!df$nom %in% a_eliminer, ]
   a_garder <- c()
   for (i in (1:(ncol(df) - 1))) {
-    df <- df[order(df[,i], decreasing = T), ]
-    a_garder <- c(a_garder, c(rownames(df[1:10, ])))
+    df <- df[order(df[,i], decreasing = T), ] #sort words assigned to each topic by decreasing probability of belonging to this topic
+    a_garder <- c(a_garder, c(rownames(df[1:10, ]))) #keep the best 10 words
     ref <- df[,i]
     for (j in 1:10) {
     df$theme[j] <- paste("Theme", as.character(i))
