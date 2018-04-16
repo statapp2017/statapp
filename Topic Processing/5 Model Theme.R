@@ -4,7 +4,7 @@ library(topicmodels)
 library(ggplot2)
 library(magrittr)
 
-#' Gives
+#' Gives a list of useful data obtained with the LDA for the Topic Modelling
 #' 
 #' @param dtm A document-term format matrix
 #' @return A list
@@ -25,6 +25,6 @@ give_theme <- function(dtm) {
   # On the graph are displayed the numbers designating each topic,                          
   # the topics must be interpreted with the figure obtained with the function caracterise       
   return(list(topics_freq = topic_freqs, phi_t = phi_t, theta = pos,
-              models = best_model)) #document_topic_assignements = document_topic_assignments                                                                                     #
+              models = best_model, document_topic_assignements = document_topic_assignments))                                                                                   #
 }
 
