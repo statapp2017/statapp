@@ -2,18 +2,19 @@ library(igraph)
 
 ### Community Algorithm ###
 
+#' For a given data about words (frequency of each words, words not to consider, etc.), plots the
+#' graph of community.
 #' 
-#' 
-#' @param graph 
-#' @param freq_var 
-#' @param suppr
-#' @return 
+#' @param graph An output of the function \code{\link{cooccurrence}}.
+#' @param freq_var A list with the frequency of each word.
+#' @param suppr A list of words not considered in the community.
+#' @return A graph illustrating the communities for the considered words (i.e. without \code{suppr}).
 
 communaute <- function(graph, freq_var, suppr) {
   mst <- minimum.spanning.tree(graph, weights = 1 - get.edge.attribute(graph, "weight"), algorithm = "prim")
   # Calculation of the community with the fastgreedy method.
-  com <- fastgreedy.community(mst, merges=TRUE, modularity=TRUE)
-  groups <- as.matrix( table(fastgreedy.community(mst)$membership) ) 
+  com <- fastgreedy.community(mst, merges = TRUE, modularity = TRUE)
+  groups <- as.matrix(table(fastgreedy.community(mst)$membership)) 
   com_m <- membership(com)
   groupe <- list()
   for (i in c(1:length(com_m))) {
@@ -34,21 +35,21 @@ communaute <- function(graph, freq_var, suppr) {
   return(list(groups, group_members))
 } 
 
-#' Plot the graphs of the community. It only keeps the \code{n} most frequent terms in the database.
+#' Plots the graphs of the community. It only keeps the \code{n} most frequent terms in the database.
 #' In the graph, a community is represented by a color and the size of a vertex is proportionnal
 #' to the log of its use frequency.
 #' 
 #' @param n The number of words to keep in the graph. We recommend n < 100 for more clarity.
 #' @param dtm The document-term matrix obtained after the preprocessing.
-#' @return Plot the graph illustrating the communities associated with the n most
-#' used words in the set of documents 
+#' @return Plot the graph illustrating the communities associated with the \code{n} most
+#' used words in the set of documents.
 
 communaute_freq <- function(n, dtm) {
   cooc_dtm <- cooccurrence(dtm)
   dtm_matrix <- t(as.matrix(dtm[, - 1]))
   freq <- NULL
   for (i in 1:length(rownames(dtm_matrix))) {
-    freq[i] = sum(dtm_matrix[i, ])}
+    freq[i] <- sum(dtm_matrix[i, ])}
   freq <- as.matrix(freq)
   rownames(freq) <- rownames(dtm_matrix)
   freq <- freq[order(freq[, 1], decreasing = T), ]
